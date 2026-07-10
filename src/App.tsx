@@ -1104,7 +1104,7 @@ function ComparePage({ products, compare, onBack }: { products: Product[]; compa
             ))}
             {fields.map(([label, getter]) => (
               <>
-                <div key={label} className="p-4 bg-navy-50 font-medium text-navy-700 text-sm border-t border-navy-100 flex items-center justify-end">{label}</div>
+                <div key={label} className="p-4 bg-navy-50 font-medium text-navy-700 text-sm border-t border-navy-100 flex items-center justify-start">{label}</div>
                 {items.map(p => (
                   <div key={p.id + label} className={`p-4 text-center border-r border-t border-navy-100 text-sm ${label === 'موجودی' ? (p.inStock ? 'text-green-600 font-medium' : 'text-red-400') : 'text-navy-700'}`}>
                     {getter(p)}
@@ -1289,25 +1289,30 @@ function AboutPage() {
           ))}
         </div>
 
-        {/* Map placeholder */}
+        {/* Map */}
         <div className="bg-white rounded-3xl shadow-sm border border-navy-100/50 overflow-hidden">
-          <div className="bg-navy-800 px-6 py-4 text-right">
-            <h3 className="text-white font-bold">موقعیت فروشگاه</h3>
-            <p className="text-navy-300 text-sm">رشت، گلسار، بلوار گیلان، رو به روی برج گلسار</p>
-          </div>
-          <div className="relative bg-navy-50 h-64 flex items-center justify-center overflow-hidden">
-            <img
-              src="https://images.unsplash.com/photo-1524813686514-a57563d77965?w=800&h=300&fit=crop&auto=format"
-              alt="نقشه"
-              className="w-full h-full object-cover opacity-60"
-            />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="bg-white rounded-2xl shadow-xl px-6 py-4 text-center border-2 border-navy-200">
-                <MapPin size={24} className="text-navy-800 mx-auto mb-2" />
-                <p className="font-bold text-navy-900 text-sm">فروشگاه بردبار</p>
-                <p className="text-navy-500 text-xs">گلسار، رشت</p>
-              </div>
+          <div className="bg-navy-800 px-6 py-4 flex items-center justify-between flex-wrap gap-2 text-right">
+            <a
+              href="https://www.google.com/maps/place/Golsar+Tower/@37.3044059,49.5796787,17z/data=!3m1!4b1!4m6!3m5!1s0x401fd8c966151241:0x7a580f8b3205f1aa!8m2!3d37.3044059!4d49.5822536!16s%2Fg%2F11btt7sm7j"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gold-400 text-sm font-medium hover:text-gold-300 transition-colors"
+            >
+              باز کردن در Google Maps
+            </a>
+            <div>
+              <h3 className="text-white font-bold">موقعیت فروشگاه</h3>
+              <p className="text-navy-300 text-sm">رشت، گلسار، بلوار گیلان، رو به روی برج گلسار</p>
             </div>
+          </div>
+          <div className="h-80">
+            <iframe
+              title="موقعیت فروشگاه بردبار روی نقشه"
+              src="https://www.google.com/maps?q=37.3044059,49.5822536&z=17&output=embed"
+              className="w-full h-full border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
           </div>
         </div>
 
@@ -1539,7 +1544,6 @@ export default function App() {
               compare={compare}
               toggleCompare={toggleCompare}
             />
-            <FeaturesBar />
             <section className="py-16 bg-cream">
               <div className="container mx-auto px-6">
                 <div className="flex items-center justify-between mb-10">
@@ -1568,31 +1572,69 @@ export default function App() {
               </div>
             </section>
 
-            {/* CTA Banner */}
+            {/* Store Info */}
             <section className="bg-navy-800 py-16">
-              <div className="container mx-auto px-6 text-center">
-                <h2 className="text-3xl font-bold text-white mb-4">با خبر باشید</h2>
-                <p className="text-navy-300 mb-8">برای دریافت اطلاعیه کالکشن‌های جدید و پیشنهادات ویژه عضو شوید</p>
-                <div className="flex gap-3 max-w-md mx-auto">
-                  <button className="bg-gold-500 text-navy-900 font-bold px-6 py-3 rounded-2xl hover:bg-gold-400 transition-colors flex-shrink-0">
-                    عضویت
-                  </button>
-                  <input placeholder="آدرس ایمیل یا شماره تلفن" className="flex-1 px-4 py-3 rounded-2xl bg-navy-700 text-white placeholder-navy-400 focus:outline-none focus:bg-navy-600 text-right border border-navy-600" dir="rtl" />
+              <div className="container mx-auto px-6">
+                <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.7fr_1.15fr] gap-6 items-center">
+                  <div className="order-1 rounded-3xl overflow-hidden" style={{ aspectRatio: '5/4' }}>
+                    <img
+                      src="https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=700&h=500&fit=crop&auto=format"
+                      alt="فروشگاه بردبار"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="text-right order-2">
+                    <p className="text-gold-400 text-sm font-medium tracking-widest mb-3 uppercase">فروشگاه بردبار</p>
+                    <h2 className="text-3xl font-bold text-white mb-6">از ما دیدن کنید</h2>
+                    <div className="space-y-4 mb-8">
+                      {[
+                        { icon: <MapPin size={18} />, title: 'آدرس', text: 'رشت، گلسار، بلوار گیلان، رو به روی برج گلسار' },
+                        { icon: <Phone size={18} />, title: 'تماس', text: '۰۱۳-۳۳۴۵۶۷۸۹' },
+                        { icon: <Clock size={18} />, title: 'ساعت کاری', text: 'شنبه تا چهارشنبه ۱۰ تا ۲۱ | پنجشنبه ۱۰ تا ۲۰' },
+                      ].map((item, i) => (
+                        <div key={i} className="flex items-start gap-3 justify-start">
+                          <div className="w-10 h-10 rounded-xl bg-navy-700 flex items-center justify-center text-gold-400 flex-shrink-0">
+                            {item.icon}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-white font-semibold text-sm">{item.title}</p>
+                            <p className="text-navy-300 text-sm">{item.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <a
+                      href="https://www.google.com/maps/place/Golsar+Tower/@37.3044059,49.5796787,17z/data=!3m1!4b1!4m6!3m5!1s0x401fd8c966151241:0x7a580f8b3205f1aa!8m2!3d37.3044059!4d49.5822536!16s%2Fg%2F11btt7sm7j"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-gold-500 text-navy-900 font-bold px-6 py-3 rounded-2xl hover:bg-gold-400 transition-colors"
+                    >
+                      <MapPin size={16} />
+                      مسیریابی تا فروشگاه
+                    </a>
+                  </div>
+                  <div className="order-3 rounded-3xl overflow-hidden" style={{ aspectRatio: '5/4' }}>
+                    <iframe
+                      title="موقعیت فروشگاه بردبار روی نقشه"
+                      src="https://www.google.com/maps?q=37.3044059,49.5822536&z=17&output=embed"
+                      className="w-full h-full border-0"
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  </div>
                 </div>
               </div>
             </section>
 
+            <FeaturesBar />
+
             {/* Footer */}
-            <footer className="bg-navy-950 py-10">
-              <div className="container mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+            <footer className="bg-navy-950 py-12">
+              <div className="container mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-8 mb-10">
                 <div className="text-right">
-                  <p className="text-gold-400 font-bold text-lg mb-3">بردبار</p>
-                  <p className="text-navy-400 text-sm leading-relaxed">پوشاک زنانه با کیفیت اروپایی در رشت</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-white font-bold mb-3 text-sm">دسترسی سریع</p>
-                  {[['خانه', 'home'], ['محصولات', 'products'], ['درباره ما', 'about']].map(([l, p]) => (
-                    <button key={p} onClick={() => setPage(p as Page)} className="block text-navy-400 text-sm hover:text-gold-400 transition-colors mb-2">{l}</button>
+                  <p className="text-white font-bold mb-3 text-sm">دسته‌بندی‌ها</p>
+                  {categories.filter(c => c !== 'همه').map(c => (
+                    <button key={c} onClick={() => goToProducts(c)} className="block text-navy-400 text-sm hover:text-gold-400 transition-colors mb-2">{c}</button>
                   ))}
                 </div>
                 <div className="text-right">
@@ -1602,10 +1644,30 @@ export default function App() {
                   ))}
                 </div>
                 <div className="text-right">
+                  <p className="text-white font-bold mb-3 text-sm">دسترسی سریع</p>
+                  {[['خانه', 'home'], ['محصولات', 'products'], ['درباره ما', 'about']].map(([l, p]) => (
+                    <button key={p} onClick={() => setPage(p as Page)} className="block text-navy-400 text-sm hover:text-gold-400 transition-colors mb-2">{l}</button>
+                  ))}
+                </div>
+                <div className="text-right">
                   <p className="text-white font-bold mb-3 text-sm">تماس</p>
                   <p className="text-navy-400 text-sm mb-1">رشت، گلسار، بلوار گیلان</p>
-                  <p className="text-navy-400 text-sm mb-1">رو به روی برج گلسار</p>
-                  <p className="text-navy-400 text-sm" dir="ltr">013-33456789</p>
+                  <p className="text-navy-400 text-sm mb-3">رو به روی برج گلسار</p>
+                  <p className="text-navy-400 text-sm mb-1" dir="ltr">013-33456789</p>
+                  <p className="text-navy-400 text-sm">شنبه تا چهارشنبه ۱۰ تا ۲۱</p>
+                  <p className="text-navy-400 text-sm">پنجشنبه ۱۰ تا ۲۰</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-gold-400 font-bold text-lg mb-3">بردبار</p>
+                  <p className="text-navy-400 text-sm leading-relaxed mb-5">پوشاک زنانه با کیفیت اروپایی در رشت</p>
+                  <div className="flex gap-2 justify-start">
+                    <button aria-label="اینستاگرام" className="w-10 h-10 rounded-xl bg-navy-800 hover:bg-navy-700 flex items-center justify-center transition-colors">
+                      <span className="text-base">📷</span>
+                    </button>
+                    <button aria-label="تلگرام" className="w-10 h-10 rounded-xl bg-navy-800 hover:bg-navy-700 flex items-center justify-center transition-colors">
+                      <MessageCircle size={17} className="text-navy-200" />
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="border-t border-navy-800 pt-6 text-center text-navy-600 text-sm">
