@@ -4,7 +4,7 @@ import {
   MapPin, Phone, Clock, MessageCircle, Package, Truck,
   CheckCircle, XCircle, ArrowRight,
   BarChart2, Trash2, Plus, Minus, CreditCard, AlertCircle,
-  Home, Info, Send, Lock, Scale, Sparkles, User
+  Home, Info, Send, Lock, Scale, Sparkles, User, SlidersHorizontal, RotateCcw
 } from 'lucide-react'
 import type { CartItem, Order, Product } from './types'
 import { ORDER_STATUS_LABELS, ORDER_STATUS_STEPS } from './types'
@@ -298,7 +298,7 @@ function NewestProducts({
               مشاهده همه
               <ChevronLeft size={16} />
             </button>
-            <h2 className="flex items-center gap-2 text-2xl font-bold text-navy-900">
+            <h2 className="flex items-center gap-2 text-3xl font-bold text-navy-900">
               جدید ترین محصولات
               <Sparkles size={20} className="text-gold-500" />
             </h2>
@@ -405,6 +405,9 @@ function ProductsPage({
   const [cat, setCat] = useState(initialCategory && categories.includes(initialCategory) ? initialCategory : 'همه')
   const [search, setSearch] = useState(initialSearch ?? '')
   const [sort, setSort] = useState('پیش‌فرض')
+  const [minPrice, setMinPrice] = useState('')
+  const [maxPrice, setMaxPrice] = useState('')
+  const [inStockOnly, setInStockOnly] = useState(false)
 
   const addToCart = (p: Product) => {
     setCart(prev => {
@@ -414,74 +417,138 @@ function ProductsPage({
     })
   }
 
-  let filtered = products.filter(p => (cat === 'همه' || p.category === cat) && p.name.includes(search))
+  let filtered = products.filter(p => {
+    if (cat !== 'همه' && p.category !== cat) return false
+    if (search && !p.name.includes(search)) return false
+    if (inStockOnly && !p.inStock) return false
+    if (minPrice && p.price < Number(minPrice)) return false
+    if (maxPrice && p.price > Number(maxPrice)) return false
+    return true
+  })
   if (sort === 'ارزان‌ترین') filtered = [...filtered].sort((a, b) => a.price - b.price)
   if (sort === 'گران‌ترین') filtered = [...filtered].sort((a, b) => b.price - a.price)
   if (sort === 'محبوب‌ترین') filtered = [...filtered].sort((a, b) => b.rating - a.rating)
+
+  const resetFilters = () => {
+    setCat('همه')
+    setSearch('')
+    setMinPrice('')
+    setMaxPrice('')
+    setInStockOnly(false)
+  }
 
   return (
     <div className="min-h-screen bg-cream py-10">
       <div className="container mx-auto px-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <select
+            value={sort}
+            onChange={e => setSort(e.target.value)}
+            className="px-4 py-2 rounded-xl border border-navy-200 text-sm bg-white focus:outline-none focus:border-navy-500"
+          >
+            {['پیش‌فرض', 'ارزان‌ترین', 'گران‌ترین', 'محبوب‌ترین'].map(s => <option key={s}>{s}</option>)}
+          </select>
           <h2 className="text-3xl font-bold text-navy-900">تمام محصولات</h2>
-          <div className="flex items-center gap-3 flex-wrap justify-end">
-            <div className="relative">
-              <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="جستجو..."
-                className="pr-9 pl-4 py-2 rounded-xl border border-navy-200 text-sm bg-white focus:outline-none focus:border-navy-500 w-48"
-              />
-            </div>
-            <select
-              value={sort}
-              onChange={e => setSort(e.target.value)}
-              className="px-4 py-2 rounded-xl border border-navy-200 text-sm bg-white focus:outline-none focus:border-navy-500"
-            >
-              {['پیش‌فرض', 'ارزان‌ترین', 'گران‌ترین', 'محبوب‌ترین'].map(s => <option key={s}>{s}</option>)}
-            </select>
-          </div>
         </div>
 
-        <div className="flex gap-2 flex-wrap mb-8">
-          {categories.map(c => (
+        {search && (
+          <div className="flex justify-end mb-6">
             <button
-              key={c}
-              onClick={() => setCat(c)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${cat === c ? 'bg-navy-800 text-white' : 'bg-white text-navy-700 border border-navy-200 hover:border-navy-500'}`}
+              onClick={() => setSearch('')}
+              className="flex items-center gap-2 bg-navy-800 text-white text-sm px-3 py-1.5 rounded-full hover:bg-navy-600 transition-colors"
             >
-              {c}
+              <X size={13} />
+              جستجو: {search}
             </button>
-          ))}
-        </div>
-
-        {loading ? (
-          <div className="text-center py-20 text-navy-400">
-            <p className="text-lg">در حال بارگذاری محصولات...</p>
           </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-              {filtered.map(p => (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  onView={() => onView(p)}
-                  onAddCart={() => addToCart(p)}
-                  onCompare={() => toggleCompare(p.id)}
-                  comparing={compare.includes(p.id)}
-                />
-              ))}
-            </div>
-            {filtered.length === 0 && (
-              <div className="text-center py-20 text-navy-400">
-                <Search size={40} className="mx-auto mb-4 opacity-40" />
-                <p className="text-lg">محصولی یافت نشد</p>
-              </div>
-            )}
-          </>
         )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
+          <aside className="bg-white rounded-2xl border border-navy-100/50 p-5 h-fit lg:sticky lg:top-24">
+            <div className="flex items-center justify-between mb-5">
+              <button onClick={resetFilters} className="flex items-center gap-1 text-xs text-navy-400 hover:text-navy-700 transition-colors">
+                <RotateCcw size={12} />
+                پاک کردن
+              </button>
+              <h3 className="flex items-center gap-2 font-bold text-navy-900">
+                فیلترها
+                <SlidersHorizontal size={16} />
+              </h3>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-sm font-semibold text-navy-800 mb-3">دسته‌بندی</p>
+              <div className="flex flex-col gap-1">
+                {categories.map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setCat(c)}
+                    className={`text-right px-3 py-2 rounded-xl text-sm transition-colors ${cat === c ? 'bg-navy-800 text-white font-medium' : 'text-navy-600 hover:bg-navy-50'}`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-6 pt-5 border-t border-navy-100">
+              <p className="text-sm font-semibold text-navy-800 mb-3">محدوده قیمت (تومان)</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={minPrice}
+                  onChange={e => setMinPrice(e.target.value)}
+                  placeholder="حداقل"
+                  className="w-full px-3 py-2 rounded-xl border border-navy-200 text-sm focus:outline-none focus:border-navy-500"
+                />
+                <span className="text-navy-300 flex-shrink-0">تا</span>
+                <input
+                  type="number"
+                  value={maxPrice}
+                  onChange={e => setMaxPrice(e.target.value)}
+                  placeholder="حداکثر"
+                  className="w-full px-3 py-2 rounded-xl border border-navy-200 text-sm focus:outline-none focus:border-navy-500"
+                />
+              </div>
+            </div>
+
+            <div className="pt-5 border-t border-navy-100">
+              <label className="flex items-center gap-2 text-sm text-navy-700 cursor-pointer">
+                <input type="checkbox" checked={inStockOnly} onChange={e => setInStockOnly(e.target.checked)} />
+                فقط کالاهای موجود
+              </label>
+            </div>
+          </aside>
+
+          <div>
+            {loading ? (
+              <div className="text-center py-20 text-navy-400">
+                <p className="text-lg">در حال بارگذاری محصولات...</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+                  {filtered.map(p => (
+                    <ProductCard
+                      key={p.id}
+                      product={p}
+                      onView={() => onView(p)}
+                      onAddCart={() => addToCart(p)}
+                      onCompare={() => toggleCompare(p.id)}
+                      comparing={compare.includes(p.id)}
+                    />
+                  ))}
+                </div>
+                {filtered.length === 0 && (
+                  <div className="text-center py-20 text-navy-400">
+                    <Search size={40} className="mx-auto mb-4 opacity-40" />
+                    <p className="text-lg">محصولی یافت نشد</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -1255,7 +1322,7 @@ function AboutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
           <div className="text-right">
             <p className="text-gold-500 font-medium mb-3">درباره ما</p>
-            <h2 className="text-4xl font-bold text-navy-900 mb-6">فروشگاه بردبار</h2>
+            <h2 className="text-3xl font-bold text-navy-900 mb-6">فروشگاه بردبار</h2>
             <p className="text-navy-600 leading-relaxed mb-6">
               فروشگاه بردبار با بیش از یک دهه تجربه در زمینه پوشاک زنانه، همواره متعهد به ارائه محصولاتی با کیفیت برتر و طراحی‌های منحصربه‌فرد بوده است.
             </p>
@@ -1453,26 +1520,25 @@ export default function App() {
           </div>
         </div>
 
-        {/* Secondary nav (desktop): pages + quick category links */}
+        {/* Secondary nav (desktop): home, all products, categories, about */}
         <div className="hidden md:block border-t border-navy-800/60">
           <div className="container mx-auto px-6 flex items-center gap-1 overflow-x-auto">
-            {nav.map(n => (
+            {([
+              { label: 'خانه', active: page === 'home', action: () => setPage('home') },
+              { label: 'همه محصولات', active: page === 'products' && !productsInitialCategory, action: () => goToProducts() },
+              { label: 'مانتو', active: page === 'products' && productsInitialCategory === 'مانتو', action: () => goToProducts('مانتو') },
+              { label: 'بلوز', active: page === 'products' && productsInitialCategory === 'بلوز', action: () => goToProducts('بلوز') },
+              { label: 'شلوار', active: page === 'products' && productsInitialCategory === 'شلوار', action: () => goToProducts('شلوار') },
+              { label: 'ست', active: page === 'products' && productsInitialCategory === 'ست', action: () => goToProducts('ست') },
+              { label: 'پیراهن', active: page === 'products' && productsInitialCategory === 'پیراهن', action: () => goToProducts('پیراهن') },
+              { label: 'درباره ما', active: page === 'about', action: () => setPage('about') },
+            ]).map(item => (
               <button
-                key={n.page}
-                onClick={() => setPage(n.page)}
-                className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${page === n.page ? 'text-gold-400' : 'text-navy-300 hover:text-white'}`}
+                key={item.label}
+                onClick={item.action}
+                className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${item.active ? 'text-gold-400' : 'text-navy-300 hover:text-white'}`}
               >
-                {n.label}
-              </button>
-            ))}
-            <span className="w-px h-4 bg-navy-700 mx-2 flex-shrink-0" />
-            {categories.filter(c => c !== 'همه').map(c => (
-              <button
-                key={c}
-                onClick={() => goToProducts(c)}
-                className="px-3 py-2.5 text-sm text-navy-300 hover:text-gold-400 transition-colors whitespace-nowrap"
-              >
-                {c}
+                {item.label}
               </button>
             ))}
           </div>
@@ -1534,6 +1600,7 @@ export default function App() {
       <main>
         {page === 'home' && (
           <>
+            <h1 className="sr-only">فروشگاه بردبار — پوشاک زنانه با کیفیت اروپایی در رشت</h1>
             <HeroBanners onSelectCategory={cat => goToProducts(cat)} />
             <CategoryShowcase onSelect={cat => goToProducts(cat)} />
             <NewestProducts
