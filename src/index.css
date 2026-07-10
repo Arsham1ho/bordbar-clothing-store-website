@@ -1,0 +1,55 @@
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('https://static.figma.com/font/Vazirmatn_wght__2') format('woff2');
+}
+
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Vazirmatn', system-ui, sans-serif;
+  --color-navy-950: #05091a;
+  --color-navy-900: #0a1628;
+  --color-navy-800: #0f2040;
+  --color-navy-700: #152a55;
+  --color-navy-600: #1a3468;
+  --color-navy-500: #1e3f7e;
+  --color-navy-400: #2e5499;
+  --color-navy-300: #4a72b8;
+  --color-navy-200: #7fa3d3;
+  --color-navy-100: #c0d5ed;
+  --color-navy-50: #e8f0f8;
+  --color-gold-500: #c9a84c;
+  --color-gold-400: #d4b56a;
+  --color-gold-300: #e0ca9a;
+  --color-gold-100: #f5edd8;
+  --color-cream: #faf8f4;
+}
+
+html, body {
+  direction: rtl;
+  font-family: 'Vazirmatn', system-ui, sans-serif;
+  background-color: #faf8f4;
+  color: #0a1628;
+  scroll-behavior: smooth;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #e8f0f8;
+}
+::-webkit-scrollbar-thumb {
+  background: #2e5499;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #152a55;
+}
