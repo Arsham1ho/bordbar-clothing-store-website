@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  ShoppingBag, Search, Menu, X, Heart, Star, ChevronLeft,
+  ShoppingBag, Search, Menu, X, Heart, Star, ChevronLeft, ChevronRight,
   MapPin, Phone, Clock, MessageCircle, Package, Truck,
   CheckCircle, XCircle, ArrowRight,
   BarChart2, Trash2, Plus, Minus, CreditCard, AlertCircle,
@@ -181,7 +181,7 @@ function BannerCard({ banner, onSelect }: { banner: BannerConfig; onSelect: () =
   }, [banner.images.length])
 
   return (
-    <div className="relative rounded-3xl overflow-hidden bg-navy-900" style={{ aspectRatio: '4/3' }}>
+    <div className="relative rounded-3xl overflow-hidden bg-navy-900" style={{ aspectRatio: '16/9' }}>
       {banner.images.map((src, i) => (
         <img
           key={src}
@@ -191,21 +191,21 @@ function BannerCard({ banner, onSelect }: { banner: BannerConfig; onSelect: () =
         />
       ))}
       <div className="absolute inset-0 bg-gradient-to-t from-navy-950/85 via-navy-950/10 to-transparent" />
-      <div className="absolute bottom-0 right-0 p-6 md:p-8 text-right">
-        <div className="inline-block bg-navy-950/70 backdrop-blur-sm rounded-xl px-3 py-2 mb-3">
-          <p className="text-gold-400 text-xs font-bold tracking-widest">{banner.label}</p>
-          <p className="text-white font-bold text-lg">{banner.title}</p>
+      <div className="absolute bottom-0 right-0 p-4 md:p-5 text-right">
+        <div className="inline-block bg-navy-950/70 backdrop-blur-sm rounded-lg px-2.5 py-1.5 mb-2">
+          <p className="text-gold-400 text-[10px] font-bold tracking-widest">{banner.label}</p>
+          <p className="text-white font-bold text-sm">{banner.title}</p>
         </div>
-        <p className="text-navy-100 text-sm mb-4 max-w-xs">{banner.subtitle}</p>
+        <p className="text-navy-100 text-xs mb-3 max-w-[220px]">{banner.subtitle}</p>
         <button
           onClick={onSelect}
-          className="flex items-center gap-2 bg-gold-500 text-navy-950 font-bold px-5 py-2.5 rounded-xl hover:bg-gold-400 transition-colors text-sm"
+          className="flex items-center gap-1.5 bg-gold-500 text-navy-950 font-bold px-4 py-2 rounded-xl hover:bg-gold-400 transition-colors text-xs"
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={14} />
           انتخاب
         </button>
       </div>
-      <div className="absolute bottom-4 left-6 flex gap-1.5">
+      <div className="absolute bottom-3 left-5 flex gap-1.5">
         {banner.images.map((_, i) => (
           <span key={i} className={`h-1.5 rounded-full transition-all ${i === idx ? 'w-5 bg-gold-400' : 'w-1.5 bg-white/40'}`} />
         ))}
@@ -248,6 +248,109 @@ function CategoryShowcase({ onSelect }: { onSelect: (category: string) => void }
               <span className="text-xs md:text-sm font-medium text-navy-800">{c.label}</span>
             </button>
           ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function NewestProducts({
+  products,
+  onViewAll,
+  onView,
+  setCart,
+  compare,
+  toggleCompare,
+}: {
+  products: Product[]
+  onViewAll: () => void
+  onView: (p: Product) => void
+  setCart: React.Dispatch<React.SetStateAction<CartItem[]>>
+  compare: number[]
+  toggleCompare: (id: number) => void
+}) {
+  const [tab, setTab] = useState('همه')
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const filtered = products
+    .filter(p => tab === 'همه' || p.category === tab)
+    .slice()
+    .sort((a, b) => b.id - a.id)
+
+  const scroll = (dir: 1 | -1) => {
+    scrollRef.current?.scrollBy({ left: dir * 320, behavior: 'smooth' })
+  }
+
+  const addToCart = (p: Product) => {
+    setCart(prev => {
+      const ex = prev.find(i => i.product.id === p.id)
+      if (ex) return prev.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1 } : i)
+      return [...prev, { product: p, size: p.sizes[0], color: p.colors[0], qty: 1 }]
+    })
+  }
+
+  return (
+    <section className="py-8 bg-cream">
+      <div className="container mx-auto px-6">
+        <div className="bg-navy-50 rounded-3xl p-6 md:p-8">
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <button onClick={onViewAll} className="text-navy-600 hover:text-navy-900 text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all">
+              مشاهده همه
+              <ChevronLeft size={16} />
+            </button>
+            <h2 className="flex items-center gap-2 text-2xl font-bold text-navy-900">
+              جدید ترین محصولات
+              <Sparkles size={20} className="text-gold-500" />
+            </h2>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-1 mb-6">
+            {categories.map(c => (
+              <button
+                key={c}
+                onClick={() => setTab(c)}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${tab === c ? 'bg-navy-800 text-white' : 'bg-white text-navy-700 border border-navy-200 hover:border-navy-500'}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative">
+            {filtered.length > 3 && (
+              <>
+                <button
+                  onClick={() => scroll(1)}
+                  className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-md items-center justify-center text-navy-600 hover:text-navy-900"
+                >
+                  <ChevronRight size={18} />
+                </button>
+                <button
+                  onClick={() => scroll(-1)}
+                  className="hidden md:flex absolute -left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-white shadow-md items-center justify-center text-navy-600 hover:text-navy-900"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+              </>
+            )}
+            {filtered.length === 0 ? (
+              <p className="text-navy-400 py-10 w-full text-center">محصولی در این دسته یافت نشد</p>
+            ) : (
+              <div ref={scrollRef} className="flex gap-4 overflow-x-auto scroll-smooth pb-2">
+                {filtered.map(p => (
+                  <div key={p.id} className="w-48 md:w-56 flex-shrink-0">
+                    <ProductCard
+                      product={p}
+                      onView={() => onView(p)}
+                      onAddCart={() => addToCart(p)}
+                      onCompare={() => toggleCompare(p.id)}
+                      comparing={compare.includes(p.id)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </section>
@@ -1428,6 +1531,14 @@ export default function App() {
           <>
             <HeroBanners onSelectCategory={cat => goToProducts(cat)} />
             <CategoryShowcase onSelect={cat => goToProducts(cat)} />
+            <NewestProducts
+              products={products}
+              onViewAll={() => goToProducts()}
+              onView={p => { setSelectedProduct(p); setPage('product') }}
+              setCart={setCart}
+              compare={compare}
+              toggleCompare={toggleCompare}
+            />
             <FeaturesBar />
             <section className="py-16 bg-cream">
               <div className="container mx-auto px-6">
