@@ -4,46 +4,15 @@ import {
   MapPin, Phone, Clock, MessageCircle, Package, Truck,
   CheckCircle, XCircle, ArrowRight,
   BarChart2, Trash2, Plus, Minus, CreditCard, AlertCircle,
-  Home, Info, Send, Lock, Scale
+  Home, Info, Send, Lock, Scale, Sparkles, User
 } from 'lucide-react'
+import type { CartItem, Order, Product } from './types'
+import { ORDER_STATUS_LABELS, ORDER_STATUS_STEPS } from './types'
+import { createOrder, fetchOrderByCode, fetchProducts, updateOrderStatus } from './lib/db'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type Page = 'home' | 'products' | 'product' | 'cart' | 'checkout' | 'tracking' | 'chat' | 'compare' | 'about' | 'order-cancel'
-
-interface Product {
-  id: number
-  name: string
-  nameEn: string
-  price: number
-  originalPrice?: number
-  category: string
-  sizes: string[]
-  colors: string[]
-  images: string[]
-  rating: number
-  reviews: number
-  inStock: boolean
-  description: string
-  material: string
-  care: string
-}
-
-interface CartItem {
-  product: Product
-  size: string
-  color: string
-  qty: number
-}
-
-interface Order {
-  id: string
-  status: 'processing' | 'shipped' | 'delivered' | 'cancelled'
-  date: string
-  items: CartItem[]
-  total: number
-  address: string
-}
 
 interface ChatMessage {
   id: number
@@ -56,176 +25,12 @@ interface ChatMessage {
 
 const categories = ['همه', 'پیراهن', 'کت و شلوار', 'مانتو', 'بلوز', 'شلوار', 'ست']
 
-const products: Product[] = [
-  {
-    id: 1,
-    name: 'پیراهن ابریشم کلاسیک',
-    nameEn: 'Classic Silk Dress',
-    price: 2_850_000,
-    originalPrice: 3_400_000,
-    category: 'پیراهن',
-    sizes: ['XS', 'S', 'M', 'L', 'XL'],
-    colors: ['سرمه‌ای', 'کرم', 'مشکی'],
-    images: [
-      'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=600&h=750&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&h=750&fit=crop&auto=format',
-    ],
-    rating: 4.8,
-    reviews: 124,
-    inStock: true,
-    description: 'پیراهن ابریشمی زنانه با طراحی کلاسیک و شیک، مناسب برای مجالس رسمی و نیمه‌رسمی. این پیراهن با پارچه ابریشم طبیعی درجه یک دوخته شده و بریدگی‌های ظریف آن به زیبایی اندام می‌افزاید.',
-    material: '100% ابریشم طبیعی',
-    care: 'خشکشویی توصیه می‌شود. اتو با دمای پایین.',
-  },
-  {
-    id: 2,
-    name: 'مانتو کشمیر ممتاز',
-    nameEn: 'Premium Cashmere Coat',
-    price: 5_200_000,
-    category: 'مانتو',
-    sizes: ['S', 'M', 'L'],
-    colors: ['سرمه‌ای', 'خاکستری'],
-    images: [
-      'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=600&h=750&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1548549557-dbe9946621da?w=600&h=750&fit=crop&auto=format',
-    ],
-    rating: 4.9,
-    reviews: 89,
-    inStock: true,
-    description: 'مانتو کشمیری زنانه با کیفیت استثنایی، گرم‌کننده و در عین حال ظریف. طراحی مینیمال و خطوط تمیز این مانتو آن را برای استفاده روزانه و رسمی مناسب می‌سازد.',
-    material: '90% کشمیر، 10% ابریشم',
-    care: 'شستشوی دستی با آب سرد. پهن کردن برای خشک شدن.',
-  },
-  {
-    id: 3,
-    name: 'ست کت و شلوار رسمی',
-    nameEn: 'Formal Suit Set',
-    price: 7_900_000,
-    originalPrice: 9_200_000,
-    category: 'کت و شلوار',
-    sizes: ['S', 'M', 'L', 'XL'],
-    colors: ['سرمه‌ای', 'مشکی', 'زغالی'],
-    images: [
-      'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600&h=750&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1487222477894-8943e31ef7b2?w=600&h=750&fit=crop&auto=format',
-    ],
-    rating: 4.7,
-    reviews: 56,
-    inStock: true,
-    description: 'ست کت و شلوار رسمی زنانه با پارچه ترکیبی پشمی درجه یک. این ست با طراحی ایتالیایی برای مدیران و بانوان حرفه‌ای مناسب است.',
-    material: '70% پشم، 30% پلی‌استر',
-    care: 'خشکشویی ضروری است.',
-  },
-  {
-    id: 4,
-    name: 'بلوز لینن تابستانی',
-    nameEn: 'Summer Linen Blouse',
-    price: 1_450_000,
-    category: 'بلوز',
-    sizes: ['XS', 'S', 'M', 'L'],
-    colors: ['سفید', 'آبی روشن', 'بژ'],
-    images: [
-      'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=600&h=750&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&h=750&fit=crop&auto=format',
-    ],
-    rating: 4.5,
-    reviews: 203,
-    inStock: true,
-    description: 'بلوز لینن سبک و تنفس‌پذیر برای فصل گرما. جنس طبیعی لینن باعث می‌شود در هوای گرم احساس راحتی کنید.',
-    material: '100% لینن طبیعی',
-    care: 'قابل شستشو در ماشین با آب ولرم.',
-  },
-  {
-    id: 5,
-    name: 'شلوار پارچه‌ای گشاد',
-    nameEn: 'Wide-leg Trousers',
-    price: 2_100_000,
-    originalPrice: 2_600_000,
-    category: 'شلوار',
-    sizes: ['S', 'M', 'L', 'XL'],
-    colors: ['مشکی', 'کرم', 'سرمه‌ای'],
-    images: [
-      'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=600&h=750&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&h=750&fit=crop&auto=format',
-    ],
-    rating: 4.6,
-    reviews: 178,
-    inStock: true,
-    description: 'شلوار پارچه‌ای گشاد با طراحی مدرن و راحت. این شلوار هم برای محیط اداری و هم برای گردش مناسب است.',
-    material: '65% ویسکوز، 35% پلی‌استر',
-    care: 'قابل شستشو در ماشین.',
-  },
-  {
-    id: 6,
-    name: 'ست دو تکه آستین‌دار',
-    nameEn: 'Two-piece Sleeve Set',
-    price: 3_600_000,
-    category: 'ست',
-    sizes: ['S', 'M', 'L'],
-    colors: ['سرمه‌ای', 'بورگاندی'],
-    images: [
-      'https://images.unsplash.com/photo-1551163943-3f7ae3bfcc50?w=600&h=750&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600&h=750&fit=crop&auto=format',
-    ],
-    rating: 4.8,
-    reviews: 67,
-    inStock: false,
-    description: 'ست دو تکه زنانه شامل تاپ و شلوار با طراحی هماهنگ. مناسب برای اوقات فراغت و گردش.',
-    material: '95% کتان، 5% اسپاندکس',
-    care: 'شستشو با آب سرد.',
-  },
-  {
-    id: 7,
-    name: 'پیراهن مجلسی طلایی',
-    nameEn: 'Gold Evening Dress',
-    price: 8_500_000,
-    originalPrice: 10_000_000,
-    category: 'پیراهن',
-    sizes: ['XS', 'S', 'M', 'L'],
-    colors: ['طلایی', 'نقره‌ای'],
-    images: [
-      'https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=600&h=750&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1617922001439-4a2e6562f328?w=600&h=750&fit=crop&auto=format',
-    ],
-    rating: 4.9,
-    reviews: 45,
-    inStock: true,
-    description: 'پیراهن مجلسی لوکس با پارچه مزون‌دوزی شده و جزئیات دوخت ظریف. مناسب برای مراسم عروسی و مهمانی‌های رسمی.',
-    material: 'ساتن + دانتل فرانسوی',
-    care: 'خشکشویی تخصصی الزامی.',
-  },
-  {
-    id: 8,
-    name: 'مانتو کتان بهاره',
-    nameEn: 'Spring Cotton Coat',
-    price: 2_950_000,
-    category: 'مانتو',
-    sizes: ['S', 'M', 'L', 'XL'],
-    colors: ['سفید', 'آبی', 'سبز سیج'],
-    images: [
-      'https://images.unsplash.com/photo-1525507119028-ed4c629a60a3?w=600&h=750&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=600&h=750&fit=crop&auto=format',
-    ],
-    rating: 4.4,
-    reviews: 132,
-    inStock: true,
-    description: 'مانتو بهاره سبک از جنس کتان درجه یک با کیفیت برتر. طراحی ساده و شیک مناسب استفاده روزانه.',
-    material: '100% کتان',
-    care: 'شستشو با آب ولرم.',
-  },
-]
-
-const mockOrder: Order = {
-  id: 'BRD-14892',
-  status: 'shipped',
-  date: '۱۴۰۳/۰۴/۱۵',
-  items: [],
-  total: 5_200_000,
-  address: 'رشت، گلسار، بلوار گیلان',
-}
-
 function formatPrice(p: number) {
   return p.toLocaleString('fa-IR') + ' تومان'
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -275,11 +80,19 @@ function ProductCard({
           alt={product.name}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
-        {product.originalPrice && (
-          <span className="absolute top-3 right-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-            {Math.round((1 - product.price / product.originalPrice) * 100)}٪ تخفیف
-          </span>
-        )}
+        <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+          {product.originalPrice && (
+            <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+              {Math.round((1 - product.price / product.originalPrice) * 100)}٪ تخفیف
+            </span>
+          )}
+          {product.isNew && (
+            <span className="flex items-center gap-1 bg-emerald-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+              <Sparkles size={11} />
+              جدید
+            </span>
+          )}
+        </div>
         {!product.inStock && (
           <div className="absolute inset-0 bg-navy-900/60 flex items-center justify-center">
             <span className="text-white font-bold text-sm bg-navy-800 px-4 py-2 rounded-full">ناموجود</span>
@@ -327,54 +140,114 @@ function ProductCard({
 
 // ─── Pages ───────────────────────────────────────────────────────────────────
 
-function HeroSection({ onShop }: { onShop: () => void }) {
-  return (
-    <section className="relative min-h-[88vh] flex items-center overflow-hidden bg-navy-900">
-      <div className="absolute inset-0">
-        <img
-          src="https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=1400&h=900&fit=crop&auto=format"
-          alt="مد و استایل"
-          className="w-full h-full object-cover opacity-30"
-        />
-        <div className="absolute inset-0 bg-gradient-to-l from-navy-900 via-navy-900/80 to-navy-800/40" />
-      </div>
+interface BannerConfig {
+  images: string[]
+  label: string
+  title: string
+  subtitle: string
+  category: string
+}
 
-      <div className="relative z-10 container mx-auto px-6 py-20 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-        <div className="text-right">
-          <p className="text-gold-400 text-sm font-medium tracking-widest mb-4 uppercase">Bordbar Collection ۱۴۰۳</p>
-          <h1 className="text-5xl lg:text-7xl font-bold text-white leading-tight mb-6">
-            سبک
-            <br />
-            <span className="text-gold-400">بی‌نظیر</span>
-            <br />
-            شما
-          </h1>
-          <p className="text-navy-200 text-lg leading-relaxed mb-10 max-w-md">
-            مجموعه‌ای از پوشاک زنانه با کیفیت اروپایی — طراحی منحصربه‌فرد، پارچه‌های ممتاز، و دوخت بی‌نقص.
-          </p>
-          <div className="flex gap-4 justify-end flex-wrap">
-            <button
-              onClick={onShop}
-              className="bg-gold-500 text-navy-950 font-bold px-8 py-4 rounded-2xl hover:bg-gold-400 transition-all duration-300 hover:shadow-lg hover:shadow-gold-500/30"
-            >
-              مشاهده کالکشن
-            </button>
-            <button className="border border-white/30 text-white px-8 py-4 rounded-2xl hover:bg-white/10 transition-colors">
-              بیشتر بدانید
-            </button>
-          </div>
+const heroBanners: BannerConfig[] = [
+  {
+    images: [
+      'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=900&h=700&fit=crop&auto=format',
+      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&h=700&fit=crop&auto=format',
+      'https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=900&h=700&fit=crop&auto=format',
+    ],
+    label: 'کالکشن جدید',
+    title: 'پیراهن‌های مجلسی',
+    subtitle: 'به‌روزترین طرح‌های فصل را کشف کنید',
+    category: 'پیراهن',
+  },
+  {
+    images: [
+      'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=900&h=700&fit=crop&auto=format',
+      'https://images.unsplash.com/photo-1525507119028-ed4c629a60a3?w=900&h=700&fit=crop&auto=format',
+    ],
+    label: 'کالکشن جدید',
+    title: 'مانتو و کت زنانه',
+    subtitle: 'شیک، گرم و مناسب هر موقعیت',
+    category: 'مانتو',
+  },
+]
+
+function BannerCard({ banner, onSelect }: { banner: BannerConfig; onSelect: () => void }) {
+  const [idx, setIdx] = useState(0)
+
+  useEffect(() => {
+    const timer = setInterval(() => setIdx(i => (i + 1) % banner.images.length), 4000)
+    return () => clearInterval(timer)
+  }, [banner.images.length])
+
+  return (
+    <div className="relative rounded-3xl overflow-hidden bg-navy-900" style={{ aspectRatio: '4/3' }}>
+      {banner.images.map((src, i) => (
+        <img
+          key={src}
+          src={src}
+          alt={banner.title}
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${i === idx ? 'opacity-100' : 'opacity-0'}`}
+        />
+      ))}
+      <div className="absolute inset-0 bg-gradient-to-t from-navy-950/85 via-navy-950/10 to-transparent" />
+      <div className="absolute bottom-0 right-0 p-6 md:p-8 text-right">
+        <div className="inline-block bg-navy-950/70 backdrop-blur-sm rounded-xl px-3 py-2 mb-3">
+          <p className="text-gold-400 text-xs font-bold tracking-widest">{banner.label}</p>
+          <p className="text-white font-bold text-lg">{banner.title}</p>
         </div>
-        <div className="hidden lg:block relative">
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=300&h=380&fit=crop&auto=format',
-              'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=300&h=380&fit=crop&auto=format',
-            ].map((src, i) => (
-              <div key={i} className={`rounded-2xl overflow-hidden ${i === 1 ? 'mt-8' : ''}`} style={{ aspectRatio: '3/4' }}>
-                <img src={src} alt="محصول" className="w-full h-full object-cover" />
+        <p className="text-navy-100 text-sm mb-4 max-w-xs">{banner.subtitle}</p>
+        <button
+          onClick={onSelect}
+          className="flex items-center gap-2 bg-gold-500 text-navy-950 font-bold px-5 py-2.5 rounded-xl hover:bg-gold-400 transition-colors text-sm"
+        >
+          <ChevronLeft size={16} />
+          انتخاب
+        </button>
+      </div>
+      <div className="absolute bottom-4 left-6 flex gap-1.5">
+        {banner.images.map((_, i) => (
+          <span key={i} className={`h-1.5 rounded-full transition-all ${i === idx ? 'w-5 bg-gold-400' : 'w-1.5 bg-white/40'}`} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function HeroBanners({ onSelectCategory }: { onSelectCategory: (category: string) => void }) {
+  return (
+    <section className="bg-cream pt-6 pb-2">
+      <div className="container mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+        {heroBanners.map(b => (
+          <BannerCard key={b.title} banner={b} onSelect={() => onSelectCategory(b.category)} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+const categoryShowcase = [
+  { label: 'پیراهن', image: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=240&h=240&fit=crop&auto=format' },
+  { label: 'کت و شلوار', image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=240&h=240&fit=crop&auto=format' },
+  { label: 'مانتو', image: 'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=240&h=240&fit=crop&auto=format' },
+  { label: 'بلوز', image: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=240&h=240&fit=crop&auto=format' },
+  { label: 'شلوار', image: 'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=240&h=240&fit=crop&auto=format' },
+  { label: 'ست', image: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=240&h=240&fit=crop&auto=format' },
+]
+
+function CategoryShowcase({ onSelect }: { onSelect: (category: string) => void }) {
+  return (
+    <section className="bg-cream pb-12 pt-4">
+      <div className="container mx-auto px-6">
+        <div className="flex gap-6 overflow-x-auto justify-center flex-wrap">
+          {categoryShowcase.map(c => (
+            <button key={c.label} onClick={() => onSelect(c.label)} className="flex flex-col items-center gap-2 flex-shrink-0 group">
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-2 border-navy-100 group-hover:border-gold-400 transition-colors">
+                <img src={c.image} alt={c.label} className="w-full h-full object-cover" />
               </div>
-            ))}
-          </div>
+              <span className="text-xs md:text-sm font-medium text-navy-800">{c.label}</span>
+            </button>
+          ))}
         </div>
       </div>
     </section>
@@ -408,18 +281,26 @@ function FeaturesBar() {
 }
 
 function ProductsPage({
+  products,
+  loading,
+  initialCategory,
+  initialSearch,
   setCart,
   onView,
   compare,
   toggleCompare,
 }: {
+  products: Product[]
+  loading: boolean
+  initialCategory?: string
+  initialSearch?: string
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>
   onView: (p: Product) => void
   compare: number[]
   toggleCompare: (id: number) => void
 }) {
-  const [cat, setCat] = useState('همه')
-  const [search, setSearch] = useState('')
+  const [cat, setCat] = useState(initialCategory && categories.includes(initialCategory) ? initialCategory : 'همه')
+  const [search, setSearch] = useState(initialSearch ?? '')
   const [sort, setSort] = useState('پیش‌فرض')
 
   const addToCart = (p: Product) => {
@@ -472,23 +353,31 @@ function ProductsPage({
           ))}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-          {filtered.map(p => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              onView={() => onView(p)}
-              onAddCart={() => addToCart(p)}
-              onCompare={() => toggleCompare(p.id)}
-              comparing={compare.includes(p.id)}
-            />
-          ))}
-        </div>
-        {filtered.length === 0 && (
+        {loading ? (
           <div className="text-center py-20 text-navy-400">
-            <Search size={40} className="mx-auto mb-4 opacity-40" />
-            <p className="text-lg">محصولی یافت نشد</p>
+            <p className="text-lg">در حال بارگذاری محصولات...</p>
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+              {filtered.map(p => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  onView={() => onView(p)}
+                  onAddCart={() => addToCart(p)}
+                  onCompare={() => toggleCompare(p.id)}
+                  comparing={compare.includes(p.id)}
+                />
+              ))}
+            </div>
+            {filtered.length === 0 && (
+              <div className="text-center py-20 text-navy-400">
+                <Search size={40} className="mx-auto mb-4 opacity-40" />
+                <p className="text-lg">محصولی یافت نشد</p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -733,7 +622,31 @@ function CheckoutPage({ cart, onDone }: { cart: CartItem[]; onDone: () => void }
   const [step, setStep] = useState<'address' | 'payment' | 'done'>('address')
   const [form, setForm] = useState({ name: '', phone: '', address: '', postal: '' })
   const [payMethod, setPayMethod] = useState<'online' | 'cod'>('online')
+  const [orderCode, setOrderCode] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const total = cart.reduce((s, i) => s + i.product.price * i.qty, 0)
+
+  const confirmOrder = async () => {
+    setSubmitting(true)
+    setSubmitError('')
+    try {
+      const order = await createOrder({
+        cart,
+        customerName: form.name,
+        phone: form.phone,
+        address: form.address,
+        postalCode: form.postal,
+        paymentMethod: payMethod,
+      })
+      setOrderCode(order.code)
+      setStep('done')
+    } catch {
+      setSubmitError('خطا در ثبت سفارش. لطفاً دوباره تلاش کنید.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   if (step === 'done') {
     return (
@@ -744,7 +657,7 @@ function CheckoutPage({ cart, onDone }: { cart: CartItem[]; onDone: () => void }
           </div>
           <h2 className="text-2xl font-bold text-navy-900 mb-3">سفارش ثبت شد!</h2>
           <p className="text-navy-500 mb-2">کد پیگیری سفارش شما:</p>
-          <p className="text-3xl font-bold text-navy-800 mb-6">BRD-{Math.floor(10000 + Math.random() * 90000)}</p>
+          <p className="text-3xl font-bold text-navy-800 mb-6" dir="ltr">{orderCode}</p>
           <p className="text-sm text-navy-500 mb-8">پیامک تأیید به شماره شما ارسال خواهد شد.</p>
           <button onClick={onDone} className="w-full bg-navy-800 text-white py-3 rounded-2xl font-bold hover:bg-navy-600 transition-colors">
             بازگشت به خانه
@@ -825,12 +738,22 @@ function CheckoutPage({ cart, onDone }: { cart: CartItem[]; onDone: () => void }
                   <span>مبلغ قابل پرداخت</span>
                 </div>
               </div>
+              {submitError && (
+                <div className="mb-4 flex items-center gap-2 text-red-500 text-sm bg-red-50 p-3 rounded-xl">
+                  <AlertCircle size={16} />
+                  <span>{submitError}</span>
+                </div>
+              )}
               <div className="flex gap-3">
-                <button onClick={() => setStep('address')} className="flex-1 border border-navy-200 text-navy-700 py-4 rounded-2xl font-medium hover:border-navy-500 transition-colors">
+                <button onClick={() => setStep('address')} disabled={submitting} className="flex-1 border border-navy-200 text-navy-700 py-4 rounded-2xl font-medium hover:border-navy-500 transition-colors disabled:opacity-40">
                   بازگشت
                 </button>
-                <button onClick={() => setStep('done')} className="flex-2 flex-[2] bg-navy-800 text-white py-4 rounded-2xl font-bold hover:bg-navy-600 transition-colors">
-                  تأیید و پرداخت
+                <button
+                  onClick={confirmOrder}
+                  disabled={submitting}
+                  className="flex-2 flex-[2] bg-navy-800 text-white py-4 rounded-2xl font-bold hover:bg-navy-600 transition-colors disabled:opacity-60"
+                >
+                  {submitting ? 'در حال ثبت سفارش...' : 'تأیید و پرداخت'}
                 </button>
               </div>
             </div>
@@ -845,17 +768,23 @@ function TrackingPage() {
   const [code, setCode] = useState('')
   const [order, setOrder] = useState<Order | null>(null)
   const [error, setError] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const statusSteps = ['ثبت سفارش', 'پردازش', 'ارسال', 'تحویل']
-  const currentStep = order?.status === 'processing' ? 1 : order?.status === 'shipped' ? 2 : order?.status === 'delivered' ? 3 : 0
+  const currentStep = order ? ORDER_STATUS_STEPS.indexOf(order.status) : -1
 
-  const search = () => {
-    if (code === 'BRD-14892' || code === mockOrder.id) {
-      setOrder(mockOrder)
-      setError(false)
-    } else {
+  const search = async () => {
+    if (!code.trim()) return
+    setLoading(true)
+    setError(false)
+    try {
+      const found = await fetchOrderByCode(code)
+      setOrder(found)
+      setError(!found)
+    } catch {
       setOrder(null)
       setError(true)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -869,12 +798,13 @@ function TrackingPage() {
             <input
               value={code}
               onChange={e => setCode(e.target.value)}
-              placeholder="مثال: BRD-14892"
+              onKeyDown={e => e.key === 'Enter' && search()}
+              placeholder="مثال: BRD-7K2F9QXM"
               className="flex-1 px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 text-right"
               dir="ltr"
             />
-            <button onClick={search} className="bg-navy-800 text-white px-6 py-3 rounded-xl font-medium hover:bg-navy-600 transition-colors">
-              پیگیری
+            <button onClick={search} disabled={loading} className="bg-navy-800 text-white px-6 py-3 rounded-xl font-medium hover:bg-navy-600 transition-colors disabled:opacity-60">
+              {loading ? '...' : 'پیگیری'}
             </button>
           </div>
           {error && (
@@ -890,39 +820,44 @@ function TrackingPage() {
             <div className="flex justify-between items-start mb-8">
               <div>
                 <p className="text-sm text-navy-500">تاریخ ثبت</p>
-                <p className="font-bold text-navy-800">{order.date}</p>
+                <p className="font-bold text-navy-800">{formatDate(order.createdAt)}</p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-navy-500">کد سفارش</p>
-                <p className="font-bold text-navy-800" dir="ltr">{order.id}</p>
+                <p className="font-bold text-navy-800" dir="ltr">{order.code}</p>
               </div>
             </div>
 
-            <div className="relative">
-              <div className="absolute top-4 right-4 left-4 h-0.5 bg-navy-100" />
-              <div
-                className="absolute top-4 right-4 h-0.5 bg-navy-700 transition-all duration-700"
-                style={{ width: `${(currentStep / 3) * 100}%` }}
-              />
-              <div className="relative flex justify-between">
-                {statusSteps.map((s, i) => (
-                  <div key={i} className="flex flex-col items-center gap-2">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold z-10 ${i <= currentStep ? 'bg-navy-800 text-white' : 'bg-navy-100 text-navy-400'}`}>
-                      {i < currentStep ? <CheckCircle size={16} /> : (i + 1).toLocaleString('fa-IR')}
-                    </div>
-                    <span className={`text-xs font-medium ${i <= currentStep ? 'text-navy-800' : 'text-navy-400'}`}>{s}</span>
-                  </div>
-                ))}
+            {order.status === 'cancelled' ? (
+              <div className="bg-red-50 rounded-xl p-4 flex items-center gap-3">
+                <XCircle size={20} className="text-red-500" />
+                <p className="font-medium text-red-600">این سفارش لغو شده است</p>
               </div>
-            </div>
+            ) : (
+              <div className="relative">
+                <div className="absolute top-4 right-4 left-4 h-0.5 bg-navy-100" />
+                <div
+                  className="absolute top-4 right-4 h-0.5 bg-navy-700 transition-all duration-700"
+                  style={{ width: `${(currentStep / (ORDER_STATUS_STEPS.length - 1)) * 100}%` }}
+                />
+                <div className="relative flex justify-between">
+                  {ORDER_STATUS_STEPS.map((s, i) => (
+                    <div key={s} className="flex flex-col items-center gap-2">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold z-10 ${i <= currentStep ? 'bg-navy-800 text-white' : 'bg-navy-100 text-navy-400'}`}>
+                        {i < currentStep ? <CheckCircle size={16} /> : (i + 1).toLocaleString('fa-IR')}
+                      </div>
+                      <span className={`text-xs font-medium text-center max-w-[70px] ${i <= currentStep ? 'text-navy-800' : 'text-navy-400'}`}>{ORDER_STATUS_LABELS[s]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="mt-8 bg-navy-50 rounded-xl p-4">
               <div className="flex items-center gap-3">
                 <Truck size={20} className="text-navy-600" />
                 <div className="text-right">
-                  <p className="font-medium text-navy-800">
-                    {order.status === 'shipped' ? 'در حال ارسال' : order.status === 'delivered' ? 'تحویل داده شد' : 'در حال پردازش'}
-                  </p>
+                  <p className="font-medium text-navy-800">{ORDER_STATUS_LABELS[order.status]}</p>
                   <p className="text-sm text-navy-500">آدرس: {order.address}</p>
                 </div>
               </div>
@@ -1016,7 +951,7 @@ function ChatPage() {
   )
 }
 
-function ComparePage({ compare, onBack }: { compare: number[]; onBack: () => void }) {
+function ComparePage({ products, compare, onBack }: { products: Product[]; compare: number[]; onBack: () => void }) {
   const items = products.filter(p => compare.includes(p.id))
 
   if (items.length < 2) {
@@ -1085,7 +1020,46 @@ function CancelOrderPage() {
   const [code, setCode] = useState('')
   const [step, setStep] = useState<'form' | 'confirm' | 'done'>('form')
   const [reason, setReason] = useState('')
+  const [order, setOrder] = useState<Order | null>(null)
+  const [lookupError, setLookupError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const reasons = ['تغییر نظر', 'پیدا کردن محصول بهتر', 'مشکل مالی', 'تأخیر در ارسال', 'سفارش اشتباه', 'سایر']
+
+  const lookupAndProceed = async () => {
+    setLookupError('')
+    setSubmitting(true)
+    try {
+      const found = await fetchOrderByCode(code)
+      if (!found) {
+        setLookupError('سفارشی با این کد پیدا نشد')
+        return
+      }
+      if (found.status === 'shipped' || found.status === 'delivered' || found.status === 'cancelled') {
+        setLookupError('این سفارش دیگر قابل لغو نیست')
+        return
+      }
+      setOrder(found)
+      setStep('confirm')
+    } catch {
+      setLookupError('خطا در بررسی سفارش')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const confirmCancel = async () => {
+    if (!order) return
+    setSubmitting(true)
+    try {
+      await updateOrderStatus(order.id, 'cancelled')
+      setStep('done')
+    } catch {
+      setLookupError('خطا در لغو سفارش')
+      setStep('form')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   if (step === 'done') {
     return (
@@ -1096,7 +1070,7 @@ function CancelOrderPage() {
           </div>
           <h2 className="text-2xl font-bold text-navy-900 mb-3">سفارش لغو شد</h2>
           <p className="text-navy-500 mb-6">درخواست لغو سفارش شما با موفقیت ثبت شد. مبلغ ظرف ۳-۵ روز کاری به حساب شما بازگشت خواهد یافت.</p>
-          <p className="text-sm text-navy-400 bg-navy-50 rounded-xl p-3">شماره پیگیری: CAN-{Math.floor(10000 + Math.random() * 90000)}</p>
+          <p className="text-sm text-navy-400 bg-navy-50 rounded-xl p-3" dir="ltr">{order?.code}</p>
         </div>
       </div>
     )
@@ -1111,13 +1085,13 @@ function CancelOrderPage() {
             <>
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex gap-3">
                 <AlertCircle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-amber-700">سفارش‌هایی که وضعیت "در حال ارسال" دارند قابل لغو نیستند.</p>
+                <p className="text-sm text-amber-700">سفارش‌هایی که وضعیت "تحویل به پیک/پست" یا بعد از آن دارند قابل لغو نیستند.</p>
               </div>
               <label className="block text-sm font-medium text-navy-700 mb-2">کد سفارش</label>
               <input
                 value={code}
                 onChange={e => setCode(e.target.value)}
-                placeholder="BRD-XXXXX"
+                placeholder="BRD-XXXXXXXX"
                 className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 mb-5 text-right"
                 dir="ltr"
               />
@@ -1133,12 +1107,18 @@ function CancelOrderPage() {
                   </button>
                 ))}
               </div>
+              {lookupError && (
+                <div className="mb-4 flex items-center gap-2 text-red-500 text-sm bg-red-50 p-3 rounded-xl">
+                  <AlertCircle size={16} />
+                  <span>{lookupError}</span>
+                </div>
+              )}
               <button
-                onClick={() => setStep('confirm')}
-                disabled={!code || !reason}
+                onClick={lookupAndProceed}
+                disabled={!code || !reason || submitting}
                 className="w-full bg-red-500 text-white py-4 rounded-2xl font-bold hover:bg-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                ادامه
+                {submitting ? 'در حال بررسی...' : 'ادامه'}
               </button>
             </>
           ) : (
@@ -1150,11 +1130,11 @@ function CancelOrderPage() {
               </div>
               <p className="text-sm text-center text-navy-500 mb-6">آیا مطمئن هستید که می‌خواهید این سفارش را لغو کنید؟</p>
               <div className="flex gap-3">
-                <button onClick={() => setStep('form')} className="flex-1 border border-navy-200 text-navy-700 py-3 rounded-2xl font-medium hover:border-navy-500 transition-colors">
+                <button onClick={() => setStep('form')} disabled={submitting} className="flex-1 border border-navy-200 text-navy-700 py-3 rounded-2xl font-medium hover:border-navy-500 transition-colors disabled:opacity-40">
                   انصراف
                 </button>
-                <button onClick={() => setStep('done')} className="flex-1 bg-red-500 text-white py-3 rounded-2xl font-bold hover:bg-red-600 transition-colors">
-                  لغو سفارش
+                <button onClick={confirmCancel} disabled={submitting} className="flex-1 bg-red-500 text-white py-3 rounded-2xl font-bold hover:bg-red-600 transition-colors disabled:opacity-60">
+                  {submitting ? 'در حال لغو...' : 'لغو سفارش'}
                 </button>
               </div>
             </>
@@ -1256,11 +1236,35 @@ export default function App() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [compare, setCompare] = useState<number[]>([])
   const [mobileMenu, setMobileMenu] = useState(false)
+  const [products, setProducts] = useState<Product[]>([])
+  const [productsLoading, setProductsLoading] = useState(true)
+  const [headerSearch, setHeaderSearch] = useState('')
+  const [showLoginNotice, setShowLoginNotice] = useState(false)
+  const [productsInitialCategory, setProductsInitialCategory] = useState<string | undefined>(undefined)
+  const [productsInitialSearch, setProductsInitialSearch] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    fetchProducts()
+      .then(setProducts)
+      .finally(() => setProductsLoading(false))
+  }, [])
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0)
 
   const toggleCompare = (id: number) => {
     setCompare(prev => prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 3 ? [...prev, id] : prev)
+  }
+
+  const goToProducts = (category?: string, search?: string) => {
+    setProductsInitialCategory(category)
+    setProductsInitialSearch(search)
+    setPage('products')
+    setMobileMenu(false)
+  }
+
+  const notifyLoginComingSoon = () => {
+    setShowLoginNotice(true)
+    setTimeout(() => setShowLoginNotice(false), 2200)
   }
 
   const nav = [
@@ -1275,25 +1279,26 @@ export default function App() {
     <div className="font-sans" dir="rtl">
       {/* Navbar */}
       <header className="sticky top-0 z-50 bg-navy-900/95 backdrop-blur-xl border-b border-navy-700/50 shadow-sm">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
           {/* Logo */}
-          <button onClick={() => setPage('home')} className="text-right">
+          <button onClick={() => setPage('home')} className="text-right flex-shrink-0">
             <span className="text-gold-400 text-2xl font-bold tracking-tight">بردبار</span>
             <span className="text-white text-xs block -mt-1 tracking-widest opacity-60">BORDBAR</span>
           </button>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-1">
-            {nav.map(n => (
-              <button
-                key={n.page}
-                onClick={() => { setPage(n.page); setMobileMenu(false) }}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${page === n.page ? 'bg-navy-700 text-gold-400' : 'text-navy-300 hover:text-white hover:bg-navy-800'}`}
-              >
-                {n.label}
-              </button>
-            ))}
-          </nav>
+          {/* Search (desktop) */}
+          <div className="hidden md:block flex-1 max-w-lg">
+            <div className="relative">
+              <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-400" />
+              <input
+                value={headerSearch}
+                onChange={e => setHeaderSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && headerSearch.trim()) goToProducts(undefined, headerSearch) }}
+                placeholder="جستجو میان محصولات..."
+                className="w-full pr-9 pl-4 py-2.5 rounded-xl bg-navy-800 border border-navy-700 text-white placeholder-navy-400 text-sm focus:outline-none focus:border-gold-400"
+              />
+            </div>
+          </div>
 
           {/* Actions */}
           <div className="flex items-center gap-2">
@@ -1306,6 +1311,20 @@ export default function App() {
                 مقایسه ({compare.length.toLocaleString('fa-IR')})
               </button>
             )}
+            <div className="relative hidden sm:block">
+              <button
+                onClick={notifyLoginComingSoon}
+                className="flex items-center gap-1.5 bg-gold-500 text-navy-950 text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-gold-400 transition-colors"
+              >
+                <User size={14} />
+                ورود / ثبت‌نام
+              </button>
+              {showLoginNotice && (
+                <div className="absolute top-full mt-2 left-0 bg-navy-950 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap shadow-lg z-10">
+                  این قابلیت به‌زودی راه‌اندازی می‌شود
+                </div>
+              )}
+            </div>
             <button
               onClick={() => setPage('cart')}
               className="relative w-10 h-10 rounded-xl bg-navy-800 text-white flex items-center justify-center hover:bg-navy-700 transition-colors"
@@ -1323,6 +1342,31 @@ export default function App() {
             >
               {mobileMenu ? <X size={18} /> : <Menu size={18} />}
             </button>
+          </div>
+        </div>
+
+        {/* Secondary nav (desktop): pages + quick category links */}
+        <div className="hidden md:block border-t border-navy-800/60">
+          <div className="container mx-auto px-6 flex items-center gap-1 overflow-x-auto">
+            {nav.map(n => (
+              <button
+                key={n.page}
+                onClick={() => setPage(n.page)}
+                className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${page === n.page ? 'text-gold-400' : 'text-navy-300 hover:text-white'}`}
+              >
+                {n.label}
+              </button>
+            ))}
+            <span className="w-px h-4 bg-navy-700 mx-2 flex-shrink-0" />
+            {categories.filter(c => c !== 'همه').map(c => (
+              <button
+                key={c}
+                onClick={() => goToProducts(c)}
+                className="px-3 py-2.5 text-sm text-navy-300 hover:text-gold-400 transition-colors whitespace-nowrap"
+              >
+                {c}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1382,7 +1426,8 @@ export default function App() {
       <main>
         {page === 'home' && (
           <>
-            <HeroSection onShop={() => setPage('products')} />
+            <HeroBanners onSelectCategory={cat => goToProducts(cat)} />
+            <CategoryShowcase onSelect={cat => goToProducts(cat)} />
             <FeaturesBar />
             <section className="py-16 bg-cream">
               <div className="container mx-auto px-6">
@@ -1461,6 +1506,10 @@ export default function App() {
 
         {page === 'products' && (
           <ProductsPage
+            products={products}
+            loading={productsLoading}
+            initialCategory={productsInitialCategory}
+            initialSearch={productsInitialSearch}
             setCart={setCart}
             onView={p => { setSelectedProduct(p); setPage('product') }}
             compare={compare}
@@ -1488,7 +1537,7 @@ export default function App() {
 
         {page === 'chat' && <ChatPage />}
 
-        {page === 'compare' && <ComparePage compare={compare} onBack={() => setPage('products')} />}
+        {page === 'compare' && <ComparePage products={products} compare={compare} onBack={() => setPage('products')} />}
 
         {page === 'order-cancel' && <CancelOrderPage />}
 
