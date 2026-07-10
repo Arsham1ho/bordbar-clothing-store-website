@@ -1,0 +1,10 @@
+{
+  "description": "Explore a stylish women's clothing store in Persian, featuring product details, easy ordering, payment options, order tracking, and customer support.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
