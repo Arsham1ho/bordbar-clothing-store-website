@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { ShoppingBag, Package, LogOut } from 'lucide-react'
+import { ShoppingBag, Package, LogOut, BarChart3 } from 'lucide-react'
 import ProductsAdmin from './ProductsAdmin'
 import OrdersAdmin from './OrdersAdmin'
+import AnalyticsAdmin from './AnalyticsAdmin'
 
-type Tab = 'products' | 'orders'
+type Tab = 'analytics' | 'products' | 'orders'
 
 export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
-  const [tab, setTab] = useState<Tab>('orders')
+  const [tab, setTab] = useState<Tab>('analytics')
 
   return (
     <div className="min-h-screen bg-cream" dir="rtl">
@@ -26,6 +27,7 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         </div>
         <div className="container mx-auto px-6 flex gap-1">
           {([
+            ['analytics', 'آمار فروش', <BarChart3 size={15} key="i" />],
             ['orders', 'سفارش‌ها', <Package size={15} key="i" />],
             ['products', 'محصولات', <ShoppingBag size={15} key="i" />],
           ] as const).map(([key, label, icon]) => (
@@ -44,7 +46,9 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        {tab === 'orders' ? <OrdersAdmin /> : <ProductsAdmin />}
+        {tab === 'analytics' && <AnalyticsAdmin />}
+        {tab === 'orders' && <OrdersAdmin />}
+        {tab === 'products' && <ProductsAdmin />}
       </main>
     </div>
   )

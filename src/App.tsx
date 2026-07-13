@@ -5,7 +5,7 @@ import {
   CheckCircle, XCircle, ArrowRight,
   BarChart2, Trash2, Plus, Minus, CreditCard, AlertCircle,
   Home, Info, Send, Lock, Scale, User, SlidersHorizontal, RotateCcw,
-  ZoomIn, ZoomOut, Pencil
+  ZoomIn, ZoomOut, Pencil, FileText, Ruler, Eye
 } from 'lucide-react'
 import type { CartItem, Order, Product, Review } from './types'
 import { ORDER_STATUS_LABELS, ORDER_STATUS_STEPS } from './types'
@@ -34,8 +34,9 @@ function TelegramIcon({ size = 20, className }: { size?: number; className?: str
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type Page = 'home' | 'products' | 'product' | 'cart' | 'checkout' | 'tracking' | 'chat' | 'compare' | 'about' | 'order-cancel' | 'auth' | 'account' | 'favorites'
+type Page = 'home' | 'products' | 'product' | 'cart' | 'checkout' | 'tracking' | 'chat' | 'compare' | 'about' | 'order-cancel' | 'auth' | 'account' | 'favorites' | 'policy'
 type AccountTab = 'profile' | 'edit' | 'orders' | 'payments'
+type PolicyTab = 'privacy' | 'terms' | 'returns'
 
 interface ChatMessage {
   id: number
@@ -81,6 +82,7 @@ function ProductCard({
   comparing,
   liked,
   onToggleLike,
+  onQuickView,
 }: {
   product: Product
   onView: () => void
@@ -89,6 +91,7 @@ function ProductCard({
   comparing: boolean
   liked: boolean
   onToggleLike: () => void
+  onQuickView: () => void
 }) {
   const [img, setImg] = useState(0)
 
@@ -136,6 +139,15 @@ function ProductCard({
         >
           <Scale size={14} />
         </button>
+        {product.inStock && (
+          <button
+            onClick={e => { e.stopPropagation(); onQuickView() }}
+            className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-white/95 text-navy-800 text-xs font-medium px-3 py-2 rounded-xl shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+          >
+            <Eye size={13} />
+            مشاهده سریع
+          </button>
+        )}
       </div>
       <div className="p-4">
         <p className="text-xs text-navy-400 mb-1">{product.category}</p>
@@ -288,6 +300,7 @@ function NewestProducts({
   toggleCompare,
   favorites,
   toggleFavorite,
+  onQuickView,
 }: {
   products: Product[]
   onViewAll: () => void
@@ -297,6 +310,7 @@ function NewestProducts({
   toggleCompare: (id: number) => void
   favorites: number[]
   toggleFavorite: (id: number) => void
+  onQuickView: (p: Product) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -357,6 +371,7 @@ function NewestProducts({
                       comparing={compare.includes(p.id)}
                       liked={favorites.includes(p.id)}
                       onToggleLike={() => toggleFavorite(p.id)}
+                      onQuickView={() => onQuickView(p)}
                     />
                   </div>
                 ))}
@@ -369,10 +384,10 @@ function NewestProducts({
   )
 }
 
-function SiteFooter({ setPage, goToProducts }: { setPage: (p: Page) => void; goToProducts: (category?: string) => void }) {
+function SiteFooter({ setPage, goToProducts, goToPolicy }: { setPage: (p: Page) => void; goToProducts: (category?: string) => void; goToPolicy: (tab: PolicyTab) => void }) {
   return (
     <footer className="bg-navy-950 py-12">
-      <div className="container mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-8 mb-10">
+      <div className="container mx-auto px-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 mb-10">
         <div className="text-right">
           <p className="text-white font-bold mb-3 text-sm">دسته‌بندی‌ها</p>
           {categories.filter(c => c !== 'همه').map(c => (
@@ -392,6 +407,12 @@ function SiteFooter({ setPage, goToProducts }: { setPage: (p: Page) => void; goT
           ))}
         </div>
         <div className="text-right">
+          <p className="text-white font-bold mb-3 text-sm">قوانین و مقررات</p>
+          {([['حریم خصوصی', 'privacy'], ['شرایط استفاده', 'terms'], ['بازگشت و مرجوعی', 'returns']] as const).map(([l, t]) => (
+            <button key={t} onClick={() => goToPolicy(t)} className="block text-navy-400 text-sm hover:text-gold-400 transition-colors mb-2">{l}</button>
+          ))}
+        </div>
+        <div className="text-right">
           <p className="text-white font-bold mb-3 text-sm">تماس</p>
           <p className="text-navy-400 text-sm mb-1">رشت، گلسار، بلوار گیلان</p>
           <p className="text-navy-400 text-sm mb-3">رو به روی برج گلسار</p>
@@ -403,12 +424,24 @@ function SiteFooter({ setPage, goToProducts }: { setPage: (p: Page) => void; goT
           <p className="font-logo text-gold-400 text-2xl mb-3">بردبار</p>
           <p className="text-navy-400 text-sm leading-relaxed mb-5">پوشاک زنانه با کیفیت اروپایی در رشت</p>
           <div className="flex gap-2 justify-start">
-            <button aria-label="اینستاگرام" className="w-10 h-10 rounded-xl bg-navy-800 hover:bg-navy-700 flex items-center justify-center transition-colors">
+            <a
+              href="https://instagram.com/bordbar.store"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="اینستاگرام"
+              className="w-10 h-10 rounded-xl bg-navy-800 hover:bg-navy-700 flex items-center justify-center transition-colors"
+            >
               <InstagramIcon size={16} className="text-navy-200" />
-            </button>
-            <button aria-label="تلگرام" className="w-10 h-10 rounded-xl bg-navy-800 hover:bg-navy-700 flex items-center justify-center transition-colors">
+            </a>
+            <a
+              href="https://t.me/bordbar_store"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="تلگرام"
+              className="w-10 h-10 rounded-xl bg-navy-800 hover:bg-navy-700 flex items-center justify-center transition-colors"
+            >
               <TelegramIcon size={16} className="text-navy-200" />
-            </button>
+            </a>
           </div>
         </div>
       </div>
@@ -514,6 +547,7 @@ function ProductsPage({
   toggleCompare,
   favorites,
   toggleFavorite,
+  onQuickView,
 }: {
   products: Product[]
   loading: boolean
@@ -526,6 +560,7 @@ function ProductsPage({
   toggleCompare: (id: number) => void
   favorites: number[]
   toggleFavorite: (id: number) => void
+  onQuickView: (p: Product) => void
 }) {
   const [search, setSearch] = useState(initialSearch ?? '')
   const [sort, setSort] = useState('پیش‌فرض')
@@ -673,6 +708,7 @@ function ProductsPage({
                       comparing={compare.includes(p.id)}
                       liked={favorites.includes(p.id)}
                       onToggleLike={() => toggleFavorite(p.id)}
+                      onQuickView={() => onQuickView(p)}
                     />
                   ))}
                 </div>
@@ -701,8 +737,10 @@ function ProductDetailPage({
   toggleCompare,
   setPage,
   goToProducts,
+  goToPolicy,
   favorites,
   toggleFavorite,
+  onQuickView,
 }: {
   product: Product
   products: Product[]
@@ -713,8 +751,10 @@ function ProductDetailPage({
   toggleCompare: (id: number) => void
   setPage: (p: Page) => void
   goToProducts: (category?: string) => void
+  goToPolicy: (tab: PolicyTab) => void
   favorites: number[]
   toggleFavorite: (id: number) => void
+  onQuickView: (p: Product) => void
 }) {
   const [size, setSize] = useState(product.sizes[0])
   const [color, setColor] = useState(product.colors[0])
@@ -854,7 +894,10 @@ function ProductDetailPage({
 
             {/* Sizes */}
             <div className="mb-6">
-              <p className="font-semibold text-navy-800 mb-3">سایز: <span className="text-navy-500 font-normal">{size}</span></p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-semibold text-navy-800">سایز: <span className="text-navy-500 font-normal">{size}</span></p>
+                <SizeGuideButton />
+              </div>
               <div className="flex gap-2 flex-wrap">
                 {product.sizes.map(s => (
                   <button
@@ -1088,6 +1131,7 @@ function ProductDetailPage({
                   comparing={compare.includes(p.id)}
                   liked={favorites.includes(p.id)}
                   onToggleLike={() => toggleFavorite(p.id)}
+                  onQuickView={() => onQuickView(p)}
                 />
               ))}
             </div>
@@ -1096,7 +1140,7 @@ function ProductDetailPage({
       </div>
     </div>
 
-    <SiteFooter setPage={setPage} goToProducts={goToProducts} />
+    <SiteFooter setPage={setPage} goToProducts={goToProducts} goToPolicy={goToPolicy} />
     </>
   )
 }
@@ -1603,6 +1647,7 @@ function FavoritesPage({
   onView,
   setCart,
   onBack,
+  onQuickView,
 }: {
   products: Product[]
   favorites: number[]
@@ -1612,6 +1657,7 @@ function FavoritesPage({
   onView: (p: Product) => void
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>
   onBack: () => void
+  onQuickView: (p: Product) => void
 }) {
   const items = products.filter(p => favorites.includes(p.id))
 
@@ -1662,6 +1708,7 @@ function FavoritesPage({
               comparing={compare.includes(p.id)}
               liked={favorites.includes(p.id)}
               onToggleLike={() => toggleFavorite(p.id)}
+              onQuickView={() => onQuickView(p)}
             />
           ))}
         </div>
@@ -2113,6 +2160,323 @@ function AccountPage({ onSignOut, initialTab }: { onSignOut: () => void; initial
   )
 }
 
+const POLICY_CONTENT: Record<PolicyTab, { title: string; icon: React.ReactNode; sections: { heading: string; body: string[] }[] }> = {
+  privacy: {
+    title: 'حریم خصوصی',
+    icon: <Lock size={17} className="text-gold-500" />,
+    sections: [
+      {
+        heading: 'چه اطلاعاتی جمع‌آوری می‌شود؟',
+        body: [
+          'برای ثبت و ارسال سفارش، تنها اطلاعاتی مانند نام، شماره موبایل، آدرس و کد پستی شما ذخیره می‌شود.',
+          'اطلاعات پرداخت شما مستقیماً توسط درگاه بانکی پردازش می‌شود و در سرورهای بردبار ذخیره نمی‌گردد.',
+        ],
+      },
+      {
+        heading: 'اطلاعات شما چگونه استفاده می‌شود؟',
+        body: [
+          'اطلاعات شما فقط برای پردازش سفارش، اطلاع‌رسانی وضعیت ارسال و پاسخ‌گویی به درخواست‌های پشتیبانی استفاده می‌شود.',
+          'اطلاعات شخصی مشتریان هرگز به اشخاص ثالث فروخته یا اجاره داده نمی‌شود.',
+        ],
+      },
+      {
+        heading: 'کوکی‌ها',
+        body: [
+          'برای حفظ سبد خرید و لیست علاقه‌مندی‌ها میان بازدیدهای شما از مرورگر استفاده می‌شود و هیچ اطلاعات حساسی در آن ذخیره نمی‌گردد.',
+        ],
+      },
+    ],
+  },
+  terms: {
+    title: 'شرایط استفاده',
+    icon: <FileText size={17} className="text-gold-500" />,
+    sections: [
+      {
+        heading: 'استفاده از فروشگاه',
+        body: [
+          'استفاده از فروشگاه بردبار به معنای پذیرش این شرایط است. لطفاً هنگام ثبت سفارش، اطلاعات صحیح و به‌روز وارد کنید.',
+        ],
+      },
+      {
+        heading: 'قیمت و موجودی کالا',
+        body: [
+          'قیمت و موجودی محصولات ممکن است بدون اطلاع قبلی تغییر کند. قیمت نهایی، قیمتی است که در لحظه ثبت سفارش نمایش داده می‌شود.',
+        ],
+      },
+      {
+        heading: 'مالکیت محتوا',
+        body: [
+          'تمامی تصاویر، متن‌ها و طراحی‌های فروشگاه بردبار متعلق به این برند است و کپی‌برداری بدون اجازه کتبی مجاز نیست.',
+        ],
+      },
+    ],
+  },
+  returns: {
+    title: 'بازگشت و مرجوعی',
+    icon: <RotateCcw size={17} className="text-gold-500" />,
+    sections: [
+      {
+        heading: 'مهلت مرجوعی',
+        body: [
+          'شما تا ۷ روز پس از تحویل سفارش فرصت دارید تا در صورت عدم رضایت، درخواست مرجوعی یا تبدیل کالا را ثبت کنید.',
+        ],
+      },
+      {
+        heading: 'شرایط پذیرش مرجوعی',
+        body: [
+          'کالا باید کاملاً نو، بدون استفاده و همراه با برچسب و بسته‌بندی اصلی باشد.',
+          'لباس‌های زیر، محصولات حراج نهایی و کالاهای سفارشی/سایز خاص قابل مرجوعی نیستند.',
+        ],
+      },
+      {
+        heading: 'روش ثبت درخواست',
+        body: [
+          'برای ثبت درخواست مرجوعی یا لغو سفارش، از صفحه «لغو سفارش» استفاده کنید یا با پشتیبانی گفتگوی آنلاین در ارتباط باشید.',
+          'پس از تأیید و بازگشت کالا، مبلغ ظرف ۳ تا ۵ روز کاری به همان روش پرداخت اولیه بازگردانده می‌شود.',
+        ],
+      },
+    ],
+  },
+}
+
+function PolicyPage({ initialTab }: { initialTab: PolicyTab }) {
+  const [tab, setTab] = useState<PolicyTab>(initialTab)
+
+  useEffect(() => {
+    setTab(initialTab)
+  }, [initialTab])
+
+  const content = POLICY_CONTENT[tab]
+
+  return (
+    <div className="min-h-screen bg-cream py-10">
+      <div className="container mx-auto px-6 max-w-3xl">
+        <div className="flex gap-2 mb-8 overflow-x-auto">
+          {(Object.keys(POLICY_CONTENT) as PolicyTab[]).map(key => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
+                tab === key ? 'bg-navy-800 text-white' : 'bg-white text-navy-600 border border-navy-100/50 hover:bg-navy-50'
+              }`}
+            >
+              {POLICY_CONTENT[key].icon}
+              {POLICY_CONTENT[key].title}
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-white rounded-3xl border border-navy-100/60 shadow-sm p-6 md:p-8">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-navy-900 mb-6">
+            {content.icon}
+            {content.title}
+          </h1>
+          <div className="space-y-6">
+            {content.sections.map(section => (
+              <div key={section.heading}>
+                <h3 className="font-bold text-navy-800 mb-2">{section.heading}</h3>
+                {section.body.map((p, i) => (
+                  <p key={i} className="text-navy-600 text-sm leading-relaxed mb-1.5 last:mb-0">{p}</p>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const SIZE_CHART: { size: string; bust: string; waist: string; hip: string }[] = [
+  { size: 'XS', bust: '۸۲-۸۶', waist: '۶۲-۶۶', hip: '۸۸-۹۲' },
+  { size: 'S', bust: '۸۶-۹۰', waist: '۶۶-۷۰', hip: '۹۲-۹۶' },
+  { size: 'M', bust: '۹۰-۹۴', waist: '۷۰-۷۴', hip: '۹۶-۱۰۰' },
+  { size: 'L', bust: '۹۴-۹۸', waist: '۷۴-۷۸', hip: '۱۰۰-۱۰۴' },
+  { size: 'XL', bust: '۹۸-۱۰۴', waist: '۷۸-۸۴', hip: '۱۰۴-۱۱۰' },
+]
+
+function SizeGuideButton() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1 text-xs text-navy-500 hover:text-navy-800 underline transition-colors"
+      >
+        <Ruler size={12} />
+        راهنمای سایز
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-sm" onClick={() => setOpen(false)}>
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-full bg-navy-50 flex items-center justify-center text-navy-500 hover:bg-navy-100 transition-colors">
+                <X size={15} />
+              </button>
+              <h3 className="flex items-center gap-2 font-bold text-navy-900">
+                <Ruler size={17} className="text-gold-500" />
+                راهنمای سایز
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-center border-collapse">
+                <thead>
+                  <tr className="bg-navy-50 text-navy-700">
+                    <th className="p-3 rounded-tr-xl">سایز</th>
+                    <th className="p-3">دور سینه (cm)</th>
+                    <th className="p-3">دور کمر (cm)</th>
+                    <th className="p-3 rounded-tl-xl">دور باسن (cm)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {SIZE_CHART.map(row => (
+                    <tr key={row.size} className="border-b border-navy-50 last:border-0">
+                      <td className="p-3 font-bold text-navy-900">{row.size}</td>
+                      <td className="p-3 text-navy-600">{row.bust}</td>
+                      <td className="p-3 text-navy-600">{row.waist}</td>
+                      <td className="p-3 text-navy-600">{row.hip}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-navy-400 mt-4 leading-relaxed">
+              اندازه‌ها تقریبی هستند. در صورت بین دو سایز بودن، پیشنهاد می‌کنیم سایز بزرگ‌تر را انتخاب کنید.
+            </p>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+function QuickViewModal({
+  product,
+  onClose,
+  setCart,
+  favorites,
+  toggleFavorite,
+  onViewFull,
+}: {
+  product: Product
+  onClose: () => void
+  setCart: React.Dispatch<React.SetStateAction<CartItem[]>>
+  favorites: number[]
+  toggleFavorite: (id: number) => void
+  onViewFull: () => void
+}) {
+  const [size, setSize] = useState(product.sizes[0])
+  const [color, setColor] = useState(product.colors[0])
+  const [added, setAdded] = useState(false)
+
+  useEffect(() => {
+    setSize(product.sizes[0])
+    setColor(product.colors[0])
+    setAdded(false)
+  }, [product.id])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const addToCart = () => {
+    setCart(prev => {
+      const ex = prev.find(i => i.product.id === product.id && i.size === size && i.color === color)
+      if (ex) return prev.map(i => i.product.id === product.id && i.size === size && i.color === color ? { ...i, qty: i.qty + 1 } : i)
+      return [...prev, { product, size, color, qty: 1 }]
+    })
+    setAdded(true)
+    setTimeout(() => setAdded(false), 1500)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-navy-950/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto grid grid-cols-1 md:grid-cols-2" onClick={e => e.stopPropagation()}>
+        <div className="relative bg-navy-50" style={{ aspectRatio: '4/5' }}>
+          <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
+          <button onClick={onClose} className="absolute top-3 left-3 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors">
+            <X size={16} className="text-navy-700" />
+          </button>
+        </div>
+        <div className="p-6 md:p-7 text-right flex flex-col">
+          <p className="text-navy-400 text-xs mb-1">{product.category}</p>
+          <h2 className="text-xl font-bold text-navy-900 mb-2">{product.name}</h2>
+          <StarRating rating={product.rating} count={product.reviews} />
+          <div className="my-4">
+            {product.originalPrice && (
+              <p className="text-gray-400 line-through text-sm">{formatPrice(product.originalPrice)}</p>
+            )}
+            <p className="text-2xl font-bold text-navy-800">{formatPrice(product.price)}</p>
+          </div>
+
+          <div className="mb-4">
+            <p className="text-xs font-medium text-navy-600 mb-2">سایز: <span className="text-navy-900 font-bold">{size}</span></p>
+            <div className="flex gap-1.5 flex-wrap">
+              {product.sizes.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setSize(s)}
+                  className={`w-9 h-9 rounded-lg text-xs font-medium transition-colors ${size === s ? 'bg-navy-800 text-white' : 'border border-navy-200 text-navy-700 hover:border-navy-500'}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <p className="text-xs font-medium text-navy-600 mb-2">رنگ: <span className="text-navy-900 font-bold">{color}</span></p>
+            <div className="flex gap-1.5 flex-wrap">
+              {product.colors.map(c => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={`px-3 py-1.5 rounded-full text-xs transition-colors ${color === c ? 'bg-navy-800 text-white' : 'border border-navy-200 text-navy-700 hover:border-navy-500'}`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-2 mt-auto">
+            <button
+              onClick={addToCart}
+              disabled={!product.inStock}
+              className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors ${
+                !product.inStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : added ? 'bg-green-500 text-white' : 'bg-navy-800 text-white hover:bg-navy-600'
+              }`}
+            >
+              {!product.inStock ? (
+                <><XCircle size={16} /> ناموجود</>
+              ) : added ? (
+                <><CheckCircle size={16} /> افزوده شد</>
+              ) : (
+                <><ShoppingBag size={16} /> افزودن به سبد</>
+              )}
+            </button>
+            <button
+              onClick={() => toggleFavorite(product.id)}
+              className={`w-12 flex-shrink-0 rounded-xl border flex items-center justify-center transition-colors ${
+                favorites.includes(product.id) ? 'bg-red-50 border-red-200 text-red-500' : 'border-navy-200 text-navy-400 hover:border-navy-400'
+              }`}
+            >
+              <Heart size={17} className={favorites.includes(product.id) ? 'fill-red-500' : ''} />
+            </button>
+          </div>
+          <button onClick={onViewFull} className="mt-3 text-sm text-navy-600 hover:text-navy-900 underline text-center transition-colors">
+            مشاهده کامل محصول
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function AboutPage() {
   return (
     <div className="min-h-screen bg-cream py-10">
@@ -2206,6 +2570,7 @@ function AboutPage() {
 export default function App() {
   const [page, setPage] = useState<Page>('home')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null)
   const [cart, setCart] = useState<CartItem[]>([])
   const [compare, setCompare] = useState<number[]>([])
   const [favorites, setFavorites] = useState<number[]>(() => {
@@ -2225,6 +2590,7 @@ export default function App() {
   const [customerLoggedIn, setCustomerLoggedIn] = useState(false)
   const [showAccountMenu, setShowAccountMenu] = useState(false)
   const [accountTab, setAccountTab] = useState<AccountTab>('profile')
+  const [policyTab, setPolicyTab] = useState<PolicyTab>('privacy')
   const [productsCategory, setProductsCategory] = useState('همه')
   const [productsInitialSearch, setProductsInitialSearch] = useState<string | undefined>(undefined)
 
@@ -2258,6 +2624,16 @@ export default function App() {
     setProductsCategory(category ?? 'همه')
     setProductsInitialSearch(search)
     setPage('products')
+    setMobileMenu(false)
+  }
+
+  const openQuickView = (p: Product) => {
+    setQuickViewProduct(p)
+  }
+
+  const goToPolicy = (tab: PolicyTab) => {
+    setPolicyTab(tab)
+    setPage('policy')
     setMobileMenu(false)
   }
 
@@ -2619,6 +2995,7 @@ export default function App() {
               toggleCompare={toggleCompare}
               favorites={favorites}
               toggleFavorite={toggleFavorite}
+              onQuickView={openQuickView}
             />
             <section className="py-16 bg-cream">
               <div className="container mx-auto px-6">
@@ -2644,6 +3021,7 @@ export default function App() {
                       comparing={compare.includes(p.id)}
                       liked={favorites.includes(p.id)}
                       onToggleLike={() => toggleFavorite(p.id)}
+                      onQuickView={() => openQuickView(p)}
                     />
                   ))}
                 </div>
@@ -2654,7 +3032,7 @@ export default function App() {
 
             <FeaturesBar />
 
-            <SiteFooter setPage={setPage} goToProducts={goToProducts} />
+            <SiteFooter setPage={setPage} goToProducts={goToProducts} goToPolicy={goToPolicy} />
           </>
         )}
 
@@ -2671,6 +3049,7 @@ export default function App() {
             toggleCompare={toggleCompare}
             favorites={favorites}
             toggleFavorite={toggleFavorite}
+            onQuickView={openQuickView}
           />
         )}
 
@@ -2685,8 +3064,10 @@ export default function App() {
             toggleCompare={toggleCompare}
             setPage={setPage}
             goToProducts={goToProducts}
+            goToPolicy={goToPolicy}
             favorites={favorites}
             toggleFavorite={toggleFavorite}
+            onQuickView={openQuickView}
           />
         )}
 
@@ -2714,6 +3095,7 @@ export default function App() {
             onView={p => { setSelectedProduct(p); setPage('product') }}
             setCart={setCart}
             onBack={() => setPage('products')}
+            onQuickView={openQuickView}
           />
         )}
 
@@ -2721,12 +3103,29 @@ export default function App() {
 
         {page === 'about' && <AboutPage />}
 
+        {page === 'policy' && <PolicyPage initialTab={policyTab} />}
+
         {page === 'auth' && <AuthPage onSuccess={() => { setCustomerLoggedIn(true); setPage('account') }} />}
 
         {page === 'account' && (
           <AccountPage onSignOut={signOutCustomer} initialTab={accountTab} />
         )}
       </main>
+
+      {quickViewProduct && (
+        <QuickViewModal
+          product={quickViewProduct}
+          onClose={() => setQuickViewProduct(null)}
+          setCart={setCart}
+          favorites={favorites}
+          toggleFavorite={toggleFavorite}
+          onViewFull={() => {
+            setSelectedProduct(quickViewProduct)
+            setPage('product')
+            setQuickViewProduct(null)
+          }}
+        />
+      )}
     </div>
   )
 }
