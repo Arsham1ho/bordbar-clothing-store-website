@@ -107,14 +107,14 @@ values
 
   ('مانتو کشمیر ممتاز', 'Premium Cashmere Coat', 5200000, null, 'مانتو',
    array['S','M','L'], array['سرمه‌ای','خاکستری'],
-   array['https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=600&h=750&fit=crop&auto=format','https://images.unsplash.com/photo-1548549557-dbe9946621da?w=600&h=750&fit=crop&auto=format'],
+   array['https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=600&h=750&fit=crop&auto=format','https://images.unsplash.com/photo-1618244972963-dbee1a7edc95?w=600&h=750&fit=crop&auto=format'],
    4.9, 89, true, false,
    'مانتو کشمیری زنانه با کیفیت استثنایی، گرم‌کننده و در عین حال ظریف. طراحی مینیمال و خطوط تمیز این مانتو آن را برای استفاده روزانه و رسمی مناسب می‌سازد.',
    '90% کشمیر، 10% ابریشم', 'شستشوی دستی با آب سرد. پهن کردن برای خشک شدن.'),
 
   ('ست کت و شلوار رسمی', 'Formal Suit Set', 7900000, 9200000, 'کت و شلوار',
    array['S','M','L','XL'], array['سرمه‌ای','مشکی','زغالی'],
-   array['https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=600&h=750&fit=crop&auto=format','https://images.unsplash.com/photo-1487222477894-8943e31ef7b2?w=600&h=750&fit=crop&auto=format'],
+   array['https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&h=750&fit=crop&auto=format','https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=600&h=750&fit=crop&auto=format'],
    4.7, 56, true, false,
    'ست کت و شلوار رسمی زنانه با پارچه ترکیبی پشمی درجه یک. این ست با طراحی ایتالیایی برای مدیران و بانوان حرفه‌ای مناسب است.',
    '70% پشم، 30% پلی‌استر', 'خشکشویی ضروری است.'),
