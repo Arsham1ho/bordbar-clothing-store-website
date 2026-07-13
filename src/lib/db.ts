@@ -357,6 +357,34 @@ export async function verifyPhoneOtp(phone: string, token: string): Promise<void
   if (error) throw error
 }
 
+// TEMPORARY: signs in with just a phone number, no SMS verification -- SMS
+// sending isn't configured yet, and email-based signup kept hitting
+// Supabase's built-in email rate limit even with confirmation disabled. This
+// uses anonymous auth instead (no email/SMS involved at all, so no rate
+// limit), and just records the phone number on the profile.
+//
+// There is no proof of phone ownership with this path, so anyone who types
+// a phone number can label their (own, anonymous) session with it -- it
+// does NOT let one person access another's account, since anonymous
+// sessions aren't looked up by phone. The real tradeoff: the same person on
+// a different browser/device gets a separate anonymous session and won't
+// see their previous order history there. Swap back to
+// sendPhoneOtp/verifyPhoneOtp above once the SMS provider is fixed.
+export async function signInWithPhoneOnly(phone: string): Promise<void> {
+  const normalized = normalizeIranPhone(phone)
+
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    const { error } = await supabase.auth.signInAnonymously()
+    if (error) throw error
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('AUTH_FAILED')
+  const { error } = await supabase.from('profiles').update({ phone: normalized }).eq('id', user.id)
+  if (error) throw error
+}
+
 export async function fetchProfile(): Promise<Profile | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null

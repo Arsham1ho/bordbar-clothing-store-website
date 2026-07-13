@@ -4,16 +4,13 @@ import {
   MapPin, Phone, Clock, MessageCircle, Package, Truck,
   CheckCircle, XCircle, ArrowRight,
   BarChart2, Trash2, Plus, Minus, CreditCard, AlertCircle,
-  Home, Info, Send, Lock, Scale, Sparkles, User, SlidersHorizontal, RotateCcw,
-  ZoomIn, ZoomOut
+  Home, Info, Send, Lock, Scale, User, SlidersHorizontal, RotateCcw,
+  ZoomIn, ZoomOut, Pencil
 } from 'lucide-react'
-import type { CartItem, Order, Product, Profile, Review } from './types'
+import type { CartItem, Order, Product, Review } from './types'
 import { ORDER_STATUS_LABELS, ORDER_STATUS_STEPS } from './types'
-import {
-  createOrder, createReview, fetchMyOrders, fetchOrderByCode, fetchProducts, fetchProfile,
-  fetchReviews, sendPhoneOtp, updateOrderStatus, updateProfile, verifyPhoneOtp,
-} from './lib/db'
-import { supabase } from './lib/supabase'
+import { createOrder, createReview, fetchOrderByCode, fetchProducts, fetchReviews, updateOrderStatus } from './lib/db'
+import { getMockOrderCodes, getMockPhone, getMockProfile, mockSignIn, mockSignOut, rememberMockOrder, saveMockProfile } from './lib/mockAuth'
 
 // ─── Brand icons ────────────────────────────────────────────────────────────
 
@@ -37,7 +34,8 @@ function TelegramIcon({ size = 20, className }: { size?: number; className?: str
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type Page = 'home' | 'products' | 'product' | 'cart' | 'checkout' | 'tracking' | 'chat' | 'compare' | 'about' | 'order-cancel' | 'auth' | 'account'
+type Page = 'home' | 'products' | 'product' | 'cart' | 'checkout' | 'tracking' | 'chat' | 'compare' | 'about' | 'order-cancel' | 'auth' | 'account' | 'favorites'
+type AccountTab = 'profile' | 'edit' | 'orders' | 'payments'
 
 interface ChatMessage {
   id: number
@@ -81,14 +79,17 @@ function ProductCard({
   onAddCart,
   onCompare,
   comparing,
+  liked,
+  onToggleLike,
 }: {
   product: Product
   onView: () => void
   onAddCart: () => void
   onCompare: () => void
   comparing: boolean
+  liked: boolean
+  onToggleLike: () => void
 }) {
-  const [liked, setLiked] = useState(false)
   const [img, setImg] = useState(0)
 
   return (
@@ -112,8 +113,7 @@ function ProductCard({
             </span>
           )}
           {product.isNew && (
-            <span className="flex items-center gap-1 bg-emerald-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-              <Sparkles size={11} />
+            <span className="bg-emerald-500 text-white text-xs font-bold px-2 py-1 rounded-full">
               جدید
             </span>
           )}
@@ -125,7 +125,7 @@ function ProductCard({
         )}
         <button
           className="absolute top-3 left-3 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm hover:bg-white transition-colors"
-          onClick={e => { e.stopPropagation(); setLiked(!liked) }}
+          onClick={e => { e.stopPropagation(); onToggleLike() }}
         >
           <Heart size={15} className={liked ? 'fill-red-500 text-red-500' : 'text-gray-400'} />
         </button>
@@ -286,6 +286,8 @@ function NewestProducts({
   setCart,
   compare,
   toggleCompare,
+  favorites,
+  toggleFavorite,
 }: {
   products: Product[]
   onViewAll: () => void
@@ -293,6 +295,8 @@ function NewestProducts({
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>
   compare: number[]
   toggleCompare: (id: number) => void
+  favorites: number[]
+  toggleFavorite: (id: number) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -351,6 +355,8 @@ function NewestProducts({
                       onAddCart={() => addToCart(p)}
                       onCompare={() => toggleCompare(p.id)}
                       comparing={compare.includes(p.id)}
+                      liked={favorites.includes(p.id)}
+                      onToggleLike={() => toggleFavorite(p.id)}
                     />
                   </div>
                 ))}
@@ -506,6 +512,8 @@ function ProductsPage({
   onView,
   compare,
   toggleCompare,
+  favorites,
+  toggleFavorite,
 }: {
   products: Product[]
   loading: boolean
@@ -516,6 +524,8 @@ function ProductsPage({
   onView: (p: Product) => void
   compare: number[]
   toggleCompare: (id: number) => void
+  favorites: number[]
+  toggleFavorite: (id: number) => void
 }) {
   const [search, setSearch] = useState(initialSearch ?? '')
   const [sort, setSort] = useState('پیش‌فرض')
@@ -661,6 +671,8 @@ function ProductsPage({
                       onAddCart={() => addToCart(p)}
                       onCompare={() => toggleCompare(p.id)}
                       comparing={compare.includes(p.id)}
+                      liked={favorites.includes(p.id)}
+                      onToggleLike={() => toggleFavorite(p.id)}
                     />
                   ))}
                 </div>
@@ -689,6 +701,8 @@ function ProductDetailPage({
   toggleCompare,
   setPage,
   goToProducts,
+  favorites,
+  toggleFavorite,
 }: {
   product: Product
   products: Product[]
@@ -699,6 +713,8 @@ function ProductDetailPage({
   toggleCompare: (id: number) => void
   setPage: (p: Page) => void
   goToProducts: (category?: string) => void
+  favorites: number[]
+  toggleFavorite: (id: number) => void
 }) {
   const [size, setSize] = useState(product.sizes[0])
   const [color, setColor] = useState(product.colors[0])
@@ -868,22 +884,35 @@ function ProductDetailPage({
               </div>
             </div>
 
-            <button
-              onClick={addToCart}
-              disabled={!product.inStock}
-              className={`w-full py-4 rounded-2xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-2 ${
-                !product.inStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed' :
-                added ? 'bg-green-500 text-white' : 'bg-navy-800 text-white hover:bg-navy-600 hover:shadow-lg'
-              }`}
-            >
-              {!product.inStock ? (
-                <><XCircle size={20} /> ناموجود</>
-              ) : added ? (
-                <><CheckCircle size={20} /> به سبد افزوده شد</>
-              ) : (
-                <><ShoppingBag size={20} /> افزودن به سبد خرید</>
-              )}
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={addToCart}
+                disabled={!product.inStock}
+                className={`flex-1 py-4 rounded-2xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-2 ${
+                  !product.inStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed' :
+                  added ? 'bg-green-500 text-white' : 'bg-navy-800 text-white hover:bg-navy-600 hover:shadow-lg'
+                }`}
+              >
+                {!product.inStock ? (
+                  <><XCircle size={20} /> ناموجود</>
+                ) : added ? (
+                  <><CheckCircle size={20} /> به سبد افزوده شد</>
+                ) : (
+                  <><ShoppingBag size={20} /> افزودن به سبد خرید</>
+                )}
+              </button>
+              <button
+                onClick={() => toggleFavorite(product.id)}
+                title="افزودن به علاقه‌مندی‌ها"
+                className={`w-14 flex-shrink-0 rounded-2xl border transition-colors flex items-center justify-center ${
+                  favorites.includes(product.id)
+                    ? 'bg-red-50 border-red-200 text-red-500'
+                    : 'border-navy-200 text-navy-400 hover:border-navy-400 hover:text-navy-600'
+                }`}
+              >
+                <Heart size={20} className={favorites.includes(product.id) ? 'fill-red-500' : ''} />
+              </button>
+            </div>
 
             {/* Tabs */}
             <div className="mt-10">
@@ -909,30 +938,52 @@ function ProductDetailPage({
 
         {/* Reviews */}
         <div className="mt-16 pt-10 border-t border-navy-200">
-          <h2 className="text-2xl font-bold text-navy-900 mb-6">نظرات مشتریان</h2>
+          <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
+            <h2 className="flex items-center gap-2 text-2xl font-bold text-navy-900">
+              <Star size={22} className="fill-gold-500 text-gold-500" />
+              نظرات مشتریان
+            </h2>
+            <div className="flex items-center gap-4 bg-navy-900 rounded-2xl px-5 py-3">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-gold-400">{product.rating.toLocaleString('fa-IR')}</p>
+                <div className="flex justify-center gap-0.5 mt-0.5">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <Star key={n} size={11} className={n <= Math.round(product.rating) ? 'fill-gold-400 text-gold-400' : 'text-navy-600'} />
+                  ))}
+                </div>
+              </div>
+              <div className="w-px h-8 bg-navy-700" />
+              <p className="text-navy-300 text-xs">
+                از <span className="text-white font-bold">{product.reviews.toLocaleString('fa-IR')}</span> نظر
+              </p>
+            </div>
+          </div>
 
-          <div className="bg-white rounded-2xl border border-navy-100/60 p-6 mb-8">
-            <p className="font-semibold text-navy-800 mb-4">ثبت نظر شما</p>
+          <div className="bg-white rounded-3xl border border-navy-100/60 shadow-sm p-6 md:p-8 mb-10">
+            <h3 className="flex items-center gap-2 font-bold text-navy-900 mb-6">
+              <Pencil size={16} className="text-gold-500" />
+              ثبت نظر شما
+            </h3>
             <input
               value={reviewName}
               onChange={e => setReviewName(e.target.value)}
               placeholder="نام شما"
-              className="w-full px-4 py-2.5 rounded-xl border border-navy-200 text-sm focus:outline-none focus:border-navy-500 text-right mb-4"
+              className="w-full px-4 py-3 rounded-xl border border-navy-200 text-sm focus:outline-none focus:border-navy-500 text-right mb-5"
             />
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 bg-navy-50/60 rounded-2xl p-4">
               {([
                 ['امتیاز کلی', reviewRating, setReviewRating],
                 ['کیفیت', reviewQuality, setReviewQuality],
                 ['قیمت', reviewPrice, setReviewPrice],
                 ['ارسال', reviewDelivery, setReviewDelivery],
               ] as const).map(([label, value, setter]) => (
-                <div key={label}>
-                  <p className="text-xs text-navy-500 mb-1.5">{label}</p>
-                  <div className="flex items-center gap-0.5">
+                <div key={label} className="text-center">
+                  <p className="text-xs font-medium text-navy-600 mb-1.5">{label}</p>
+                  <div className="flex items-center justify-center gap-0.5">
                     {[1, 2, 3, 4, 5].map(n => (
                       <button key={n} type="button" onClick={() => setter(n)}>
-                        <Star size={17} className={n <= value ? 'fill-amber-400 text-amber-400' : 'text-gray-300'} />
+                        <Star size={17} className={n <= value ? 'fill-gold-500 text-gold-500' : 'text-navy-200'} />
                       </button>
                     ))}
                   </div>
@@ -945,11 +996,11 @@ function ProductDetailPage({
               onChange={e => setReviewComment(e.target.value)}
               placeholder="نظر خود را درباره این محصول بنویسید..."
               rows={3}
-              className="w-full px-4 py-2.5 rounded-xl border border-navy-200 text-sm focus:outline-none focus:border-navy-500 text-right mb-4"
+              className="w-full px-4 py-3 rounded-xl border border-navy-200 text-sm focus:outline-none focus:border-navy-500 text-right mb-4"
             />
 
-            <label className="flex items-center gap-2 text-sm text-navy-600 border border-dashed border-navy-200 rounded-xl px-4 py-2.5 cursor-pointer hover:border-navy-400 transition-colors mb-4 w-fit">
-              <Package size={15} />
+            <label className="flex items-center gap-2 text-sm text-navy-600 border border-dashed border-navy-300 rounded-xl px-4 py-2.5 cursor-pointer hover:border-gold-400 hover:text-navy-800 transition-colors mb-5 w-fit">
+              <Package size={15} className="text-navy-400" />
               {reviewImage ? reviewImage.name : 'افزودن عکس (اختیاری)'}
               <input
                 type="file"
@@ -959,11 +1010,16 @@ function ProductDetailPage({
               />
             </label>
 
-            {reviewError && <p className="text-red-500 text-sm mb-3">{reviewError}</p>}
+            {reviewError && (
+              <p className="flex items-center gap-1.5 text-red-500 text-sm mb-4">
+                <AlertCircle size={14} />
+                {reviewError}
+              </p>
+            )}
             <button
               onClick={submitReview}
               disabled={submittingReview || !reviewName.trim() || !reviewComment.trim()}
-              className="bg-navy-800 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-navy-600 transition-colors disabled:opacity-50"
+              className="bg-navy-800 text-white px-7 py-3 rounded-xl text-sm font-bold hover:bg-navy-600 transition-colors disabled:opacity-50"
             >
               {submittingReview ? 'در حال ثبت...' : 'ثبت نظر'}
             </button>
@@ -972,31 +1028,38 @@ function ProductDetailPage({
           {reviewsLoading ? (
             <p className="text-navy-400 text-center py-8">در حال بارگذاری نظرات...</p>
           ) : reviews.length === 0 ? (
-            <p className="text-navy-400 text-center py-8">هنوز نظری برای این محصول ثبت نشده است. اولین نفر باشید!</p>
+            <div className="text-center py-14 bg-white rounded-3xl border border-navy-100/50">
+              <Star size={30} className="mx-auto mb-3 text-navy-200" />
+              <p className="text-navy-400">هنوز نظری برای این محصول ثبت نشده است. اولین نفر باشید!</p>
+            </div>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {reviews.map(r => (
-                <div key={r.id} className="bg-white rounded-2xl border border-navy-100/50 p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs text-navy-400">{formatDate(r.createdAt)}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-navy-900 text-sm">{r.authorName}</span>
-                      <div className="flex">
+                <div key={r.id} className="bg-white rounded-2xl border border-navy-100/50 p-5 hover:shadow-md transition-shadow">
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full bg-navy-800 text-gold-400 font-bold flex items-center justify-center flex-shrink-0">
+                      {r.authorName.trim().charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-navy-900 text-sm truncate">{r.authorName}</span>
+                        <span className="text-xs text-navy-400 flex-shrink-0">{formatDate(r.createdAt)}</span>
+                      </div>
+                      <div className="flex gap-0.5 mt-1">
                         {[1, 2, 3, 4, 5].map(n => (
-                          <Star key={n} size={13} className={n <= r.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'} />
+                          <Star key={n} size={13} className={n <= r.rating ? 'fill-gold-500 text-gold-500' : 'text-navy-200'} />
                         ))}
                       </div>
                     </div>
                   </div>
                   <p className="text-navy-700 text-sm leading-relaxed mb-3">{r.comment}</p>
                   {r.imageUrl && (
-                    <img src={r.imageUrl} alt="تصویر نظر کاربر" className="w-24 h-24 object-cover rounded-xl mb-3" />
+                    <img src={r.imageUrl} alt="تصویر نظر کاربر" className="w-24 h-24 object-cover rounded-xl mb-3 border border-navy-100" />
                   )}
-                  <div className="flex items-center gap-4 text-xs text-navy-500 border-t border-navy-50 pt-3">
+                  <div className="flex items-center gap-2 flex-wrap border-t border-navy-50 pt-3">
                     {([['کیفیت', r.qualityRating], ['قیمت', r.priceRating], ['ارسال', r.deliveryRating]] as const).map(([label, val]) => (
-                      <span key={label} className="flex items-center gap-1">
-                        {label}: <span className="font-bold text-navy-700">{val.toLocaleString('fa-IR')}</span>
-                        <Star size={11} className="fill-amber-400 text-amber-400" />
+                      <span key={label} className="flex items-center gap-1 bg-navy-50 text-navy-600 text-xs px-2.5 py-1 rounded-full">
+                        {label} <span className="font-bold text-navy-800">{val.toLocaleString('fa-IR')}</span>
                       </span>
                     ))}
                   </div>
@@ -1023,6 +1086,8 @@ function ProductDetailPage({
                   })}
                   onCompare={() => toggleCompare(p.id)}
                   comparing={compare.includes(p.id)}
+                  liked={favorites.includes(p.id)}
+                  onToggleLike={() => toggleFavorite(p.id)}
                 />
               ))}
             </div>
@@ -1152,6 +1217,7 @@ function CheckoutPage({ cart, onDone }: { cart: CartItem[]; onDone: () => void }
         paymentMethod: payMethod,
       })
       setOrderCode(order.code)
+      if (getMockPhone()) rememberMockOrder(order.code)
       setStep('done')
     } catch {
       setSubmitError('خطا در ثبت سفارش. لطفاً دوباره تلاش کنید.')
@@ -1528,6 +1594,82 @@ function ComparePage({ products, compare, onBack }: { products: Product[]; compa
   )
 }
 
+function FavoritesPage({
+  products,
+  favorites,
+  toggleFavorite,
+  compare,
+  toggleCompare,
+  onView,
+  setCart,
+  onBack,
+}: {
+  products: Product[]
+  favorites: number[]
+  toggleFavorite: (id: number) => void
+  compare: number[]
+  toggleCompare: (id: number) => void
+  onView: (p: Product) => void
+  setCart: React.Dispatch<React.SetStateAction<CartItem[]>>
+  onBack: () => void
+}) {
+  const items = products.filter(p => favorites.includes(p.id))
+
+  const addToCart = (p: Product) => {
+    setCart(prev => {
+      const ex = prev.find(i => i.product.id === p.id)
+      if (ex) return prev.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1 } : i)
+      return [...prev, { product: p, size: p.sizes[0], color: p.colors[0], qty: 1 }]
+    })
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="text-center">
+          <Heart size={50} className="mx-auto mb-4 text-navy-300" />
+          <h2 className="text-2xl font-bold text-navy-900 mb-2">لیست علاقه‌مندی‌ها</h2>
+          <p className="text-navy-500 mb-6">هنوز محصولی را به علاقه‌مندی‌ها اضافه نکرده‌اید</p>
+          <button onClick={onBack} className="bg-navy-800 text-white px-8 py-3 rounded-2xl font-bold hover:bg-navy-600 transition-colors">
+            مشاهده محصولات
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-cream py-10">
+      <div className="container mx-auto px-6">
+        <div className="flex items-center justify-between mb-8">
+          <button onClick={onBack} className="flex items-center gap-2 text-navy-600 hover:text-navy-900 transition-colors">
+            <ArrowRight size={18} />
+            بازگشت
+          </button>
+          <h2 className="flex items-center gap-2 text-3xl font-bold text-navy-900">
+            <Heart size={26} className="fill-red-500 text-red-500" />
+            علاقه‌مندی‌ها
+          </h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          {items.map(p => (
+            <ProductCard
+              key={p.id}
+              product={p}
+              onView={() => onView(p)}
+              onAddCart={() => addToCart(p)}
+              onCompare={() => toggleCompare(p.id)}
+              comparing={compare.includes(p.id)}
+              liked={favorites.includes(p.id)}
+              onToggleLike={() => toggleFavorite(p.id)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CancelOrderPage() {
   const [code, setCode] = useState('')
   const [step, setStep] = useState<'form' | 'confirm' | 'done'>('form')
@@ -1658,96 +1800,38 @@ function CancelOrderPage() {
 }
 
 function AuthPage({ onSuccess }: { onSuccess: () => void }) {
-  const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
 
-  const submitPhone = async (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      await sendPhoneOtp(phone)
-      setStep('otp')
-    } catch {
-      setError('ارسال کد با خطا مواجه شد. شماره موبایل را بررسی کنید.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const submitOtp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    try {
-      await verifyPhoneOtp(phone, otp)
-      onSuccess()
-    } catch {
-      setError('کد وارد شده صحیح نیست.')
-    } finally {
-      setLoading(false)
-    }
+    mockSignIn(phone)
+    onSuccess()
   }
 
   return (
     <div className="min-h-screen bg-cream flex items-center justify-center py-16 px-4">
-      <form onSubmit={step === 'phone' ? submitPhone : submitOtp} className="bg-white rounded-3xl p-8 shadow-sm border border-navy-100/50 max-w-sm w-full">
+      <form onSubmit={submit} className="bg-white rounded-3xl p-8 shadow-sm border border-navy-100/50 max-w-sm w-full">
         <div className="w-14 h-14 rounded-2xl bg-navy-800 flex items-center justify-center mx-auto mb-6">
           <User size={24} className="text-gold-400" />
         </div>
         <h1 className="text-xl font-bold text-navy-900 text-center mb-1">ورود / ثبت‌نام</h1>
-        <p className="text-sm text-navy-500 text-center mb-6">
-          {step === 'phone' ? 'شماره موبایل خود را وارد کنید' : `کد ارسال شده به ${phone} را وارد کنید`}
-        </p>
+        <p className="text-sm text-navy-500 text-center mb-6">شماره موبایل خود را وارد کنید</p>
 
-        {step === 'phone' ? (
-          <input
-            type="tel"
-            required
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            placeholder="09xxxxxxxxx"
-            className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 mb-5 text-center"
-            dir="ltr"
-          />
-        ) : (
-          <>
-            <input
-              type="text"
-              required
-              value={otp}
-              onChange={e => setOtp(e.target.value)}
-              placeholder="کد ۶ رقمی"
-              maxLength={6}
-              className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 mb-3 text-center tracking-widest"
-              dir="ltr"
-            />
-            <button
-              type="button"
-              onClick={() => { setStep('phone'); setOtp(''); setError('') }}
-              className="block text-xs text-navy-500 hover:text-navy-800 transition-colors mb-5"
-            >
-              ویرایش شماره موبایل
-            </button>
-          </>
-        )}
-
-        {error && (
-          <div className="mb-4 flex items-center gap-2 text-red-500 text-sm bg-red-50 p-3 rounded-xl">
-            <AlertCircle size={16} />
-            <span>{error}</span>
-          </div>
-        )}
+        <input
+          type="tel"
+          required
+          value={phone}
+          onChange={e => setPhone(e.target.value)}
+          placeholder="09xxxxxxxxx"
+          className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 mb-5 text-center"
+          dir="ltr"
+        />
 
         <button
           type="submit"
-          disabled={loading}
-          className="w-full bg-navy-800 text-white py-3 rounded-2xl font-bold hover:bg-navy-600 transition-colors disabled:opacity-60"
+          className="w-full bg-navy-800 text-white py-3 rounded-2xl font-bold hover:bg-navy-600 transition-colors"
         >
-          {loading ? 'در حال پردازش...' : step === 'phone' ? 'ارسال کد' : 'تایید'}
+          ورود / ثبت‌نام
         </button>
       </form>
     </div>
@@ -1763,126 +1847,266 @@ const ACCOUNT_ORDER_STATUS_COLORS: Record<Order['status'], string> = {
   cancelled: 'bg-red-100 text-red-600',
 }
 
-function AccountPage({ onSignOut }: { onSignOut: () => void }) {
-  const [profile, setProfile] = useState<Profile | null>(null)
+function AccountPage({ onSignOut, initialTab }: { onSignOut: () => void; initialTab: AccountTab }) {
+  const [tab, setTab] = useState<AccountTab>(initialTab)
+  const [phone, setPhone] = useState('')
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [fullName, setFullName] = useState('')
   const [address, setAddress] = useState('')
   const [postalCode, setPostalCode] = useState('')
-  const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    Promise.all([fetchProfile(), fetchMyOrders()])
-      .then(([p, o]) => {
-        setProfile(p)
-        setOrders(o)
-        if (p) {
-          setFullName(p.fullName)
-          setAddress(p.address)
-          setPostalCode(p.postalCode)
-        }
-      })
-      .catch(() => {})
+    setTab(initialTab)
+  }, [initialTab])
+
+  useEffect(() => {
+    const profile = getMockProfile()
+    setPhone(profile.phone)
+    setFullName(profile.fullName)
+    setAddress(profile.address)
+    setPostalCode(profile.postalCode)
+
+    const codes = getMockOrderCodes()
+    Promise.all(codes.map(code => fetchOrderByCode(code).catch(() => null)))
+      .then(results => setOrders(results.filter((o): o is Order => o !== null)))
       .finally(() => setLoading(false))
   }, [])
 
-  const saveProfile = async () => {
-    setSaving(true)
-    try {
-      const updated = await updateProfile({ fullName, address, postalCode })
-      setProfile(updated)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-    } finally {
-      setSaving(false)
-    }
+  const saveProfile = () => {
+    saveMockProfile({ fullName, address, postalCode })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
   }
 
   if (loading) {
     return <div className="min-h-screen bg-cream flex items-center justify-center text-navy-400">در حال بارگذاری...</div>
   }
 
+  const totalSpent = orders.reduce((s, o) => s + o.total, 0)
+
   return (
-    <div className="min-h-screen bg-cream py-10">
-      <div className="container mx-auto px-6 max-w-3xl">
-        <div className="flex items-center justify-between mb-8">
-          <button onClick={onSignOut} className="flex items-center gap-2 text-red-500 hover:text-red-600 text-sm font-medium transition-colors">
-            <XCircle size={16} />
-            خروج از حساب
-          </button>
-          <h2 className="text-3xl font-bold text-navy-900">حساب کاربری</h2>
-        </div>
-
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-navy-100/50 mb-8">
-          <h3 className="font-bold text-navy-900 mb-5">اطلاعات من</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium text-navy-700 mb-2">نام و نام خانوادگی</label>
-              <input
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 text-right"
-              />
+    <div className="min-h-screen bg-cream">
+      {/* Hero */}
+      <div className="bg-navy-900 pt-10 pb-16">
+        <div className="container mx-auto px-6">
+          <div className="grid grid-cols-3 items-center">
+            <div />
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-gold-500 flex items-center justify-center text-navy-900 font-bold text-2xl mb-3">
+                {fullName.trim() ? fullName.trim().charAt(0) : <User size={26} />}
+              </div>
+              <p className="text-white font-bold text-lg">{fullName || 'کاربر بردبار'}</p>
+              <p className="text-navy-300 text-sm" dir="ltr">{phone}</p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-navy-700 mb-2">شماره موبایل</label>
-              <input
-                value={profile?.phone ?? ''}
-                disabled
-                className="w-full px-4 py-3 rounded-xl border border-navy-200 bg-navy-50 text-navy-400"
-                dir="ltr"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-navy-700 mb-2">آدرس</label>
-              <input
-                value={address}
-                onChange={e => setAddress(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 text-right"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-navy-700 mb-2">کد پستی</label>
-              <input
-                value={postalCode}
-                onChange={e => setPostalCode(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 text-right"
-              />
+            <div className="flex justify-start">
+              <button onClick={onSignOut} className="flex items-center gap-2 text-navy-300 hover:text-white text-sm font-medium transition-colors">
+                <XCircle size={16} />
+                خروج از حساب
+              </button>
             </div>
           </div>
-          <button
-            onClick={saveProfile}
-            disabled={saving}
-            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-60 ${saved ? 'bg-green-500 text-white' : 'bg-navy-800 text-white hover:bg-navy-600'}`}
-          >
-            {saving ? 'در حال ذخیره...' : saved ? 'ذخیره شد' : 'ذخیره تغییرات'}
-          </button>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-6 max-w-3xl -mt-10 pb-10">
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <div className="bg-white rounded-2xl p-5 shadow-md border border-navy-100/50 text-center">
+            <p className="text-2xl font-bold text-navy-900">{orders.length.toLocaleString('fa-IR')}</p>
+            <p className="text-xs text-navy-500 mt-1">سفارش ثبت شده</p>
+          </div>
+          <div className="bg-white rounded-2xl p-5 shadow-md border border-navy-100/50 text-center">
+            <p className="text-2xl font-bold text-navy-900">{formatPrice(totalSpent)}</p>
+            <p className="text-xs text-navy-500 mt-1">مجموع خرید</p>
+          </div>
         </div>
 
-        <h3 className="text-xl font-bold text-navy-900 mb-5">سفارش‌های من</h3>
-        {orders.length === 0 ? (
-          <div className="text-center py-16 text-navy-400 bg-white rounded-3xl border border-navy-100/50">
-            <Package size={32} className="mx-auto mb-3 opacity-30" />
-            <p>هنوز سفارشی ثبت نکرده‌اید</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {orders.map(order => (
-              <div key={order.id} className="bg-white rounded-2xl border border-navy-100/50 p-4 flex items-center justify-between flex-wrap gap-3">
-                <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 ${ACCOUNT_ORDER_STATUS_COLORS[order.status]}`}>
-                  {ORDER_STATUS_LABELS[order.status]}
-                </span>
-                <div className="flex items-center gap-6 text-sm text-navy-700 flex-wrap">
-                  <span className="font-bold text-navy-900">{formatPrice(order.total)}</span>
-                  <span>{order.items.length.toLocaleString('fa-IR')} کالا</span>
-                  <span className="text-navy-400">{formatDate(order.createdAt)}</span>
-                  <span className="font-bold text-navy-900" dir="ltr">{order.code}</span>
+        {/* Tab bar */}
+        <div className="flex gap-2 mb-6 overflow-x-auto">
+          {[
+            { key: 'profile' as AccountTab, label: 'پروفایل من', icon: <User size={16} /> },
+            { key: 'orders' as AccountTab, label: 'سفارش‌های من', icon: <Package size={16} /> },
+            { key: 'payments' as AccountTab, label: 'تاریخچه پرداخت', icon: <CreditCard size={16} /> },
+            { key: 'edit' as AccountTab, label: 'ویرایش حساب', icon: <Pencil size={16} /> },
+          ].map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
+                tab === t.key ? 'bg-navy-800 text-white' : 'bg-white text-navy-600 border border-navy-100/50 hover:bg-navy-50'
+              }`}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'profile' && (
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-navy-100/50">
+            <h3 className="flex items-center gap-2 font-bold text-navy-900 mb-5">
+              <User size={17} className="text-gold-500" />
+              اطلاعات من
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-navy-50/60">
+                <User size={16} className="text-navy-400" />
+                <div>
+                  <p className="text-xs text-navy-400">نام و نام خانوادگی</p>
+                  <p className="font-medium text-navy-900">{fullName || '—'}</p>
                 </div>
               </div>
-            ))}
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-navy-50/60">
+                <Phone size={16} className="text-navy-400" />
+                <div>
+                  <p className="text-xs text-navy-400">شماره موبایل</p>
+                  <p className="font-medium text-navy-900" dir="ltr">{phone}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-navy-50/60">
+                <MapPin size={16} className="text-navy-400" />
+                <div>
+                  <p className="text-xs text-navy-400">آدرس</p>
+                  <p className="font-medium text-navy-900">{address || '—'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-navy-50/60">
+                <Package size={16} className="text-navy-400" />
+                <div>
+                  <p className="text-xs text-navy-400">کد پستی</p>
+                  <p className="font-medium text-navy-900" dir="ltr">{postalCode || '—'}</p>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setTab('edit')}
+              className="mt-5 flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold bg-navy-800 text-white hover:bg-navy-600 transition-colors"
+            >
+              <Pencil size={14} />
+              ویرایش اطلاعات
+            </button>
           </div>
+        )}
+
+        {tab === 'edit' && (
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-navy-100/50">
+            <h3 className="flex items-center gap-2 font-bold text-navy-900 mb-5">
+              <Pencil size={17} className="text-gold-500" />
+              ویرایش حساب
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-navy-700 mb-2">
+                  <User size={14} className="text-navy-400" />
+                  نام و نام خانوادگی
+                </label>
+                <input
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  placeholder="نام خود را وارد کنید"
+                  className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 text-right"
+                />
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-navy-700 mb-2">
+                  <Phone size={14} className="text-navy-400" />
+                  شماره موبایل
+                </label>
+                <input
+                  value={phone}
+                  disabled
+                  className="w-full px-4 py-3 rounded-xl border border-navy-200 bg-navy-50 text-navy-400"
+                  dir="ltr"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-navy-700 mb-2">
+                  <MapPin size={14} className="text-navy-400" />
+                  آدرس
+                </label>
+                <input
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                  placeholder="آدرس تحویل سفارش"
+                  className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 text-right"
+                />
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-navy-700 mb-2">
+                  <Package size={14} className="text-navy-400" />
+                  کد پستی
+                </label>
+                <input
+                  value={postalCode}
+                  onChange={e => setPostalCode(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 text-right"
+                />
+              </div>
+            </div>
+            <button
+              onClick={saveProfile}
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-colors ${saved ? 'bg-green-500 text-white' : 'bg-navy-800 text-white hover:bg-navy-600'}`}
+            >
+              {saved ? 'ذخیره شد ✓' : 'ذخیره تغییرات'}
+            </button>
+          </div>
+        )}
+
+        {tab === 'orders' && (
+          orders.length === 0 ? (
+            <div className="text-center py-16 text-navy-400 bg-white rounded-3xl border border-navy-100/50">
+              <Package size={32} className="mx-auto mb-3 opacity-30" />
+              <p>هنوز سفارشی ثبت نکرده‌اید</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {orders.map(order => (
+                <div key={order.id} className="bg-white rounded-2xl border border-navy-100/50 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 ${ACCOUNT_ORDER_STATUS_COLORS[order.status]}`}>
+                      {ORDER_STATUS_LABELS[order.status]}
+                    </span>
+                    <div className="text-right">
+                      <p className="font-bold text-navy-900" dir="ltr">{order.code}</p>
+                      <p className="text-xs text-navy-400">{formatDate(order.createdAt)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-navy-50 text-sm">
+                    <span className="font-bold text-navy-900">{formatPrice(order.total)}</span>
+                    <span className="text-navy-500">{order.items.length.toLocaleString('fa-IR')} کالا</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {tab === 'payments' && (
+          orders.length === 0 ? (
+            <div className="text-center py-16 text-navy-400 bg-white rounded-3xl border border-navy-100/50">
+              <CreditCard size={32} className="mx-auto mb-3 opacity-30" />
+              <p>هنوز پرداختی ثبت نشده است</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {orders.map(order => (
+                <div key={order.id} className="bg-white rounded-2xl border border-navy-100/50 p-5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-navy-50 flex items-center justify-center text-navy-500">
+                      <CreditCard size={18} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-navy-900 text-sm">{order.paymentMethod === 'online' ? 'پرداخت آنلاین' : 'پرداخت در محل'}</p>
+                      <p className="text-xs text-navy-400">{formatDate(order.createdAt)} · <span dir="ltr">{order.code}</span></p>
+                    </div>
+                  </div>
+                  <span className="font-bold text-navy-900">{formatPrice(order.total)}</span>
+                </div>
+              ))}
+            </div>
+          )
         )}
       </div>
     </div>
@@ -1984,6 +2208,14 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [cart, setCart] = useState<CartItem[]>([])
   const [compare, setCompare] = useState<number[]>([])
+  const [favorites, setFavorites] = useState<number[]>(() => {
+    try {
+      const raw = localStorage.getItem('bordbar_favorites')
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  })
   const [mobileMenu, setMobileMenu] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
   const [productsLoading, setProductsLoading] = useState(true)
@@ -1991,6 +2223,8 @@ export default function App() {
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
   const [showCartPreview, setShowCartPreview] = useState(false)
   const [customerLoggedIn, setCustomerLoggedIn] = useState(false)
+  const [showAccountMenu, setShowAccountMenu] = useState(false)
+  const [accountTab, setAccountTab] = useState<AccountTab>('profile')
   const [productsCategory, setProductsCategory] = useState('همه')
   const [productsInitialSearch, setProductsInitialSearch] = useState<string | undefined>(undefined)
 
@@ -2002,18 +2236,22 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setCustomerLoggedIn(!!data.session))
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setCustomerLoggedIn(!!session)
-    })
-    return () => subscription.subscription.unsubscribe()
+    setCustomerLoggedIn(!!getMockPhone())
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem('bordbar_favorites', JSON.stringify(favorites))
+  }, [favorites])
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0)
   const cartTotal = cart.reduce((s, i) => s + i.product.price * i.qty, 0)
 
   const toggleCompare = (id: number) => {
     setCompare(prev => prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 3 ? [...prev, id] : prev)
+  }
+
+  const toggleFavorite = (id: number) => {
+    setFavorites(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
   const goToProducts = (category?: string, search?: string) => {
@@ -2024,8 +2262,24 @@ export default function App() {
   }
 
   const goToAccount = () => {
+    if (customerLoggedIn) setAccountTab('profile')
     setPage(customerLoggedIn ? 'account' : 'auth')
     setMobileMenu(false)
+  }
+
+  const openAccountSection = (tab: AccountTab) => {
+    setAccountTab(tab)
+    setPage('account')
+    setShowAccountMenu(false)
+    setMobileMenu(false)
+  }
+
+  const signOutCustomer = () => {
+    mockSignOut()
+    setCustomerLoggedIn(false)
+    setShowAccountMenu(false)
+    setMobileMenu(false)
+    setPage('home')
   }
 
   const searchSuggestions = headerSearch.trim()
@@ -2042,6 +2296,7 @@ export default function App() {
   const nav = [
     { label: 'خانه', page: 'home' as Page, icon: <Home size={15} /> },
     { label: 'محصولات', page: 'products' as Page, icon: <ShoppingBag size={15} /> },
+    { label: 'علاقه‌مندی‌ها', page: 'favorites' as Page, icon: <Heart size={15} /> },
     { label: 'پیگیری', page: 'tracking' as Page, icon: <Package size={15} /> },
     { label: 'پشتیبانی', page: 'chat' as Page, icon: <MessageCircle size={15} /> },
     { label: 'درباره ما', page: 'about' as Page, icon: <Info size={15} /> },
@@ -2114,12 +2369,53 @@ export default function App() {
                 مقایسه ({compare.length.toLocaleString('fa-IR')})
               </button>
             )}
+            <div className="relative hidden sm:block">
+              <button
+                onClick={() => customerLoggedIn ? setShowAccountMenu(v => !v) : goToAccount()}
+                className="flex items-center gap-1.5 bg-gold-500 text-navy-950 text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-gold-400 transition-colors"
+              >
+                <User size={14} />
+                {customerLoggedIn ? 'حساب من' : 'ورود / ثبت‌نام'}
+              </button>
+
+              {showAccountMenu && customerLoggedIn && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setShowAccountMenu(false)} />
+                  <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-navy-100 overflow-hidden z-30 text-right">
+                    <button onClick={() => openAccountSection('profile')} className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-navy-700 hover:bg-navy-50 transition-colors border-b border-navy-50">
+                      <User size={15} />
+                      پروفایل من
+                    </button>
+                    <button onClick={() => openAccountSection('orders')} className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-navy-700 hover:bg-navy-50 transition-colors border-b border-navy-50">
+                      <Package size={15} />
+                      سفارش‌های من
+                    </button>
+                    <button onClick={() => openAccountSection('payments')} className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-navy-700 hover:bg-navy-50 transition-colors border-b border-navy-50">
+                      <CreditCard size={15} />
+                      تاریخچه پرداخت
+                    </button>
+                    <button onClick={() => openAccountSection('edit')} className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-navy-700 hover:bg-navy-50 transition-colors border-b border-navy-50">
+                      <Pencil size={15} />
+                      ویرایش حساب
+                    </button>
+                    <button onClick={signOutCustomer} className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                      <XCircle size={15} />
+                      خروج از حساب
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <button
-              onClick={goToAccount}
-              className="hidden sm:flex items-center gap-1.5 bg-gold-500 text-navy-950 text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-gold-400 transition-colors"
+              onClick={() => setPage('favorites')}
+              className="hidden md:flex relative w-10 h-10 rounded-xl bg-navy-800 text-white items-center justify-center hover:bg-navy-700 transition-colors"
             >
-              <User size={14} />
-              {customerLoggedIn ? 'حساب من' : 'ورود / ثبت‌نام'}
+              <Heart size={18} className={favorites.length > 0 ? 'fill-red-500 text-red-500' : ''} />
+              {favorites.length > 0 && (
+                <span className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-gold-500 text-navy-900 text-xs font-bold flex items-center justify-center">
+                  {favorites.length.toLocaleString('fa-IR')}
+                </span>
+              )}
             </button>
             <div
               className="relative hidden md:block"
@@ -2239,13 +2535,35 @@ export default function App() {
                 {n.label}
               </button>
             ))}
-            <button
-              onClick={goToAccount}
-              className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-gold-400 hover:bg-navy-800 transition-colors text-right"
-            >
-              <User size={15} />
-              {customerLoggedIn ? 'حساب من' : 'ورود / ثبت‌نام'}
-            </button>
+            {customerLoggedIn ? (
+              <>
+                <button onClick={() => openAccountSection('profile')} className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-gold-400 hover:bg-navy-800 transition-colors text-right">
+                  <User size={15} />
+                  پروفایل من
+                </button>
+                <button onClick={() => openAccountSection('orders')} className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-navy-300 hover:bg-navy-800 hover:text-white transition-colors text-right">
+                  <Package size={15} />
+                  سفارش‌های من
+                </button>
+                <button onClick={() => openAccountSection('payments')} className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-navy-300 hover:bg-navy-800 hover:text-white transition-colors text-right">
+                  <CreditCard size={15} />
+                  تاریخچه پرداخت
+                </button>
+                <button onClick={() => openAccountSection('edit')} className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-navy-300 hover:bg-navy-800 hover:text-white transition-colors text-right">
+                  <Pencil size={15} />
+                  ویرایش حساب
+                </button>
+                <button onClick={signOutCustomer} className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-navy-800 transition-colors text-right">
+                  <XCircle size={15} />
+                  خروج از حساب
+                </button>
+              </>
+            ) : (
+              <button onClick={goToAccount} className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-gold-400 hover:bg-navy-800 transition-colors text-right">
+                <User size={15} />
+                ورود / ثبت‌نام
+              </button>
+            )}
             <button
               onClick={() => { setPage('order-cancel'); setMobileMenu(false) }}
               className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-navy-800 transition-colors text-right"
@@ -2299,6 +2617,8 @@ export default function App() {
               setCart={setCart}
               compare={compare}
               toggleCompare={toggleCompare}
+              favorites={favorites}
+              toggleFavorite={toggleFavorite}
             />
             <section className="py-16 bg-cream">
               <div className="container mx-auto px-6">
@@ -2322,6 +2642,8 @@ export default function App() {
                       })}
                       onCompare={() => toggleCompare(p.id)}
                       comparing={compare.includes(p.id)}
+                      liked={favorites.includes(p.id)}
+                      onToggleLike={() => toggleFavorite(p.id)}
                     />
                   ))}
                 </div>
@@ -2347,6 +2669,8 @@ export default function App() {
             onView={p => { setSelectedProduct(p); setPage('product') }}
             compare={compare}
             toggleCompare={toggleCompare}
+            favorites={favorites}
+            toggleFavorite={toggleFavorite}
           />
         )}
 
@@ -2361,6 +2685,8 @@ export default function App() {
             toggleCompare={toggleCompare}
             setPage={setPage}
             goToProducts={goToProducts}
+            favorites={favorites}
+            toggleFavorite={toggleFavorite}
           />
         )}
 
@@ -2378,14 +2704,27 @@ export default function App() {
 
         {page === 'compare' && <ComparePage products={products} compare={compare} onBack={() => setPage('products')} />}
 
+        {page === 'favorites' && (
+          <FavoritesPage
+            products={products}
+            favorites={favorites}
+            toggleFavorite={toggleFavorite}
+            compare={compare}
+            toggleCompare={toggleCompare}
+            onView={p => { setSelectedProduct(p); setPage('product') }}
+            setCart={setCart}
+            onBack={() => setPage('products')}
+          />
+        )}
+
         {page === 'order-cancel' && <CancelOrderPage />}
 
         {page === 'about' && <AboutPage />}
 
-        {page === 'auth' && <AuthPage onSuccess={() => setPage('account')} />}
+        {page === 'auth' && <AuthPage onSuccess={() => { setCustomerLoggedIn(true); setPage('account') }} />}
 
         {page === 'account' && (
-          <AccountPage onSignOut={() => { supabase.auth.signOut(); setPage('home') }} />
+          <AccountPage onSignOut={signOutCustomer} initialTab={accountTab} />
         )}
       </main>
     </div>
