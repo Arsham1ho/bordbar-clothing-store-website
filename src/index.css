@@ -6,10 +6,20 @@
   src: url('https://static.figma.com/font/Vazirmatn_wght__2') format('woff2');
 }
 
+@font-face {
+  font-family: 'Lalezar';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://fonts.gstatic.com/s/lalezar/v16/zrfl0HLVx-HwTP82YaL4IwD3VCnWiQ.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+FB50-FDFF, U+FE70-FEFC;
+}
+
 @import 'tailwindcss';
 
 @theme {
   --font-sans: 'Vazirmatn', system-ui, sans-serif;
+  --font-logo: 'Lalezar', 'Vazirmatn', sans-serif;
   --color-navy-950: #05091a;
   --color-navy-900: #0a1628;
   --color-navy-800: #0f2040;
@@ -41,7 +51,7 @@ html, body {
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 3px;
 }
 ::-webkit-scrollbar-track {
   background: #e8f0f8;

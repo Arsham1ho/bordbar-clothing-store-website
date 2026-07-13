@@ -59,3 +59,16 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 }
 
 export const ORDER_STATUS_STEPS: OrderStatus[] = ['pending', 'gathering', 'packaging', 'shipped', 'delivered']
+
+export interface Review {
+  id: string
+  productId: number
+  authorName: string
+  rating: number
+  qualityRating: number
+  priceRating: number
+  deliveryRating: number
+  comment: string
+  imageUrl?: string
+  createdAt: string
+}
