@@ -7,9 +7,13 @@ import {
   Home, Info, Send, Lock, Scale, Sparkles, User, SlidersHorizontal, RotateCcw,
   ZoomIn, ZoomOut
 } from 'lucide-react'
-import type { CartItem, Order, Product, Review } from './types'
+import type { CartItem, Order, Product, Profile, Review } from './types'
 import { ORDER_STATUS_LABELS, ORDER_STATUS_STEPS } from './types'
-import { createOrder, createReview, fetchOrderByCode, fetchProducts, fetchReviews, updateOrderStatus } from './lib/db'
+import {
+  createOrder, createReview, fetchMyOrders, fetchOrderByCode, fetchProducts, fetchProfile,
+  fetchReviews, sendPhoneOtp, updateOrderStatus, updateProfile, verifyPhoneOtp,
+} from './lib/db'
+import { supabase } from './lib/supabase'
 
 // ─── Brand icons ────────────────────────────────────────────────────────────
 
@@ -33,7 +37,7 @@ function TelegramIcon({ size = 20, className }: { size?: number; className?: str
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type Page = 'home' | 'products' | 'product' | 'cart' | 'checkout' | 'tracking' | 'chat' | 'compare' | 'about' | 'order-cancel'
+type Page = 'home' | 'products' | 'product' | 'cart' | 'checkout' | 'tracking' | 'chat' | 'compare' | 'about' | 'order-cancel' | 'auth' | 'account'
 
 interface ChatMessage {
   id: number
@@ -1653,6 +1657,238 @@ function CancelOrderPage() {
   )
 }
 
+function AuthPage({ onSuccess }: { onSuccess: () => void }) {
+  const [step, setStep] = useState<'phone' | 'otp'>('phone')
+  const [phone, setPhone] = useState('')
+  const [otp, setOtp] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const submitPhone = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      await sendPhoneOtp(phone)
+      setStep('otp')
+    } catch {
+      setError('ارسال کد با خطا مواجه شد. شماره موبایل را بررسی کنید.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const submitOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+    try {
+      await verifyPhoneOtp(phone, otp)
+      onSuccess()
+    } catch {
+      setError('کد وارد شده صحیح نیست.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-cream flex items-center justify-center py-16 px-4">
+      <form onSubmit={step === 'phone' ? submitPhone : submitOtp} className="bg-white rounded-3xl p-8 shadow-sm border border-navy-100/50 max-w-sm w-full">
+        <div className="w-14 h-14 rounded-2xl bg-navy-800 flex items-center justify-center mx-auto mb-6">
+          <User size={24} className="text-gold-400" />
+        </div>
+        <h1 className="text-xl font-bold text-navy-900 text-center mb-1">ورود / ثبت‌نام</h1>
+        <p className="text-sm text-navy-500 text-center mb-6">
+          {step === 'phone' ? 'شماره موبایل خود را وارد کنید' : `کد ارسال شده به ${phone} را وارد کنید`}
+        </p>
+
+        {step === 'phone' ? (
+          <input
+            type="tel"
+            required
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            placeholder="09xxxxxxxxx"
+            className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 mb-5 text-center"
+            dir="ltr"
+          />
+        ) : (
+          <>
+            <input
+              type="text"
+              required
+              value={otp}
+              onChange={e => setOtp(e.target.value)}
+              placeholder="کد ۶ رقمی"
+              maxLength={6}
+              className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 mb-3 text-center tracking-widest"
+              dir="ltr"
+            />
+            <button
+              type="button"
+              onClick={() => { setStep('phone'); setOtp(''); setError('') }}
+              className="block text-xs text-navy-500 hover:text-navy-800 transition-colors mb-5"
+            >
+              ویرایش شماره موبایل
+            </button>
+          </>
+        )}
+
+        {error && (
+          <div className="mb-4 flex items-center gap-2 text-red-500 text-sm bg-red-50 p-3 rounded-xl">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-navy-800 text-white py-3 rounded-2xl font-bold hover:bg-navy-600 transition-colors disabled:opacity-60"
+        >
+          {loading ? 'در حال پردازش...' : step === 'phone' ? 'ارسال کد' : 'تایید'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+const ACCOUNT_ORDER_STATUS_COLORS: Record<Order['status'], string> = {
+  pending: 'bg-navy-100 text-navy-700',
+  gathering: 'bg-amber-100 text-amber-700',
+  packaging: 'bg-blue-100 text-blue-700',
+  shipped: 'bg-purple-100 text-purple-700',
+  delivered: 'bg-green-100 text-green-700',
+  cancelled: 'bg-red-100 text-red-600',
+}
+
+function AccountPage({ onSignOut }: { onSignOut: () => void }) {
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [fullName, setFullName] = useState('')
+  const [address, setAddress] = useState('')
+  const [postalCode, setPostalCode] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    Promise.all([fetchProfile(), fetchMyOrders()])
+      .then(([p, o]) => {
+        setProfile(p)
+        setOrders(o)
+        if (p) {
+          setFullName(p.fullName)
+          setAddress(p.address)
+          setPostalCode(p.postalCode)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const saveProfile = async () => {
+    setSaving(true)
+    try {
+      const updated = await updateProfile({ fullName, address, postalCode })
+      setProfile(updated)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return <div className="min-h-screen bg-cream flex items-center justify-center text-navy-400">در حال بارگذاری...</div>
+  }
+
+  return (
+    <div className="min-h-screen bg-cream py-10">
+      <div className="container mx-auto px-6 max-w-3xl">
+        <div className="flex items-center justify-between mb-8">
+          <button onClick={onSignOut} className="flex items-center gap-2 text-red-500 hover:text-red-600 text-sm font-medium transition-colors">
+            <XCircle size={16} />
+            خروج از حساب
+          </button>
+          <h2 className="text-3xl font-bold text-navy-900">حساب کاربری</h2>
+        </div>
+
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-navy-100/50 mb-8">
+          <h3 className="font-bold text-navy-900 mb-5">اطلاعات من</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-navy-700 mb-2">نام و نام خانوادگی</label>
+              <input
+                value={fullName}
+                onChange={e => setFullName(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 text-right"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-navy-700 mb-2">شماره موبایل</label>
+              <input
+                value={profile?.phone ?? ''}
+                disabled
+                className="w-full px-4 py-3 rounded-xl border border-navy-200 bg-navy-50 text-navy-400"
+                dir="ltr"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-navy-700 mb-2">آدرس</label>
+              <input
+                value={address}
+                onChange={e => setAddress(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 text-right"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-navy-700 mb-2">کد پستی</label>
+              <input
+                value={postalCode}
+                onChange={e => setPostalCode(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-navy-200 focus:outline-none focus:border-navy-500 text-right"
+              />
+            </div>
+          </div>
+          <button
+            onClick={saveProfile}
+            disabled={saving}
+            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-60 ${saved ? 'bg-green-500 text-white' : 'bg-navy-800 text-white hover:bg-navy-600'}`}
+          >
+            {saving ? 'در حال ذخیره...' : saved ? 'ذخیره شد' : 'ذخیره تغییرات'}
+          </button>
+        </div>
+
+        <h3 className="text-xl font-bold text-navy-900 mb-5">سفارش‌های من</h3>
+        {orders.length === 0 ? (
+          <div className="text-center py-16 text-navy-400 bg-white rounded-3xl border border-navy-100/50">
+            <Package size={32} className="mx-auto mb-3 opacity-30" />
+            <p>هنوز سفارشی ثبت نکرده‌اید</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {orders.map(order => (
+              <div key={order.id} className="bg-white rounded-2xl border border-navy-100/50 p-4 flex items-center justify-between flex-wrap gap-3">
+                <span className={`text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 ${ACCOUNT_ORDER_STATUS_COLORS[order.status]}`}>
+                  {ORDER_STATUS_LABELS[order.status]}
+                </span>
+                <div className="flex items-center gap-6 text-sm text-navy-700 flex-wrap">
+                  <span className="font-bold text-navy-900">{formatPrice(order.total)}</span>
+                  <span>{order.items.length.toLocaleString('fa-IR')} کالا</span>
+                  <span className="text-navy-400">{formatDate(order.createdAt)}</span>
+                  <span className="font-bold text-navy-900" dir="ltr">{order.code}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function AboutPage() {
   return (
     <div className="min-h-screen bg-cream py-10">
@@ -1754,7 +1990,7 @@ export default function App() {
   const [headerSearch, setHeaderSearch] = useState('')
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
   const [showCartPreview, setShowCartPreview] = useState(false)
-  const [showLoginNotice, setShowLoginNotice] = useState(false)
+  const [customerLoggedIn, setCustomerLoggedIn] = useState(false)
   const [productsCategory, setProductsCategory] = useState('همه')
   const [productsInitialSearch, setProductsInitialSearch] = useState<string | undefined>(undefined)
 
@@ -1763,6 +1999,14 @@ export default function App() {
       .then(setProducts)
       .catch(() => setProducts([]))
       .finally(() => setProductsLoading(false))
+  }, [])
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setCustomerLoggedIn(!!data.session))
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCustomerLoggedIn(!!session)
+    })
+    return () => subscription.subscription.unsubscribe()
   }, [])
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0)
@@ -1779,9 +2023,9 @@ export default function App() {
     setMobileMenu(false)
   }
 
-  const notifyLoginComingSoon = () => {
-    setShowLoginNotice(true)
-    setTimeout(() => setShowLoginNotice(false), 2200)
+  const goToAccount = () => {
+    setPage(customerLoggedIn ? 'account' : 'auth')
+    setMobileMenu(false)
   }
 
   const searchSuggestions = headerSearch.trim()
@@ -1870,20 +2114,13 @@ export default function App() {
                 مقایسه ({compare.length.toLocaleString('fa-IR')})
               </button>
             )}
-            <div className="relative hidden sm:block">
-              <button
-                onClick={notifyLoginComingSoon}
-                className="flex items-center gap-1.5 bg-gold-500 text-navy-950 text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-gold-400 transition-colors"
-              >
-                <User size={14} />
-                ورود / ثبت‌نام
-              </button>
-              {showLoginNotice && (
-                <div className="absolute top-full mt-2 left-0 bg-navy-950 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap shadow-lg z-10">
-                  این قابلیت به‌زودی راه‌اندازی می‌شود
-                </div>
-              )}
-            </div>
+            <button
+              onClick={goToAccount}
+              className="hidden sm:flex items-center gap-1.5 bg-gold-500 text-navy-950 text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-gold-400 transition-colors"
+            >
+              <User size={14} />
+              {customerLoggedIn ? 'حساب من' : 'ورود / ثبت‌نام'}
+            </button>
             <div
               className="relative hidden md:block"
               onMouseEnter={() => setShowCartPreview(true)}
@@ -2002,6 +2239,13 @@ export default function App() {
                 {n.label}
               </button>
             ))}
+            <button
+              onClick={goToAccount}
+              className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-gold-400 hover:bg-navy-800 transition-colors text-right"
+            >
+              <User size={15} />
+              {customerLoggedIn ? 'حساب من' : 'ورود / ثبت‌نام'}
+            </button>
             <button
               onClick={() => { setPage('order-cancel'); setMobileMenu(false) }}
               className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-navy-800 transition-colors text-right"
@@ -2137,6 +2381,12 @@ export default function App() {
         {page === 'order-cancel' && <CancelOrderPage />}
 
         {page === 'about' && <AboutPage />}
+
+        {page === 'auth' && <AuthPage onSuccess={() => setPage('account')} />}
+
+        {page === 'account' && (
+          <AccountPage onSignOut={() => { supabase.auth.signOut(); setPage('home') }} />
+        )}
       </main>
     </div>
   )

@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { CartItem, Order, OrderStatus, Product, Review } from '../types'
+import type { CartItem, Order, OrderStatus, Product, Profile, Review } from '../types'
 
 // ─── Products ───────────────────────────────────────────────────────────────
 
@@ -151,23 +151,30 @@ export async function createOrder(params: {
   paymentMethod: 'online' | 'cod'
 }): Promise<Order> {
   const total = params.cart.reduce((s, i) => s + i.product.price * i.qty, 0)
+  const { data: { user } } = await supabase.auth.getUser()
 
   for (let attempt = 0; attempt < 5; attempt++) {
+    const id = crypto.randomUUID()
     const code = generateOrderCode()
-    const { data: orderRow, error } = await supabase
-      .from('orders')
-      .insert({
-        code,
-        customer_name: params.customerName,
-        phone: params.phone,
-        address: params.address,
-        postal_code: params.postalCode,
-        payment_method: params.paymentMethod,
-        status: 'pending',
-        total,
-      })
-      .select()
-      .single()
+    const createdAt = new Date().toISOString()
+
+    // Insert without reading back: order rows are only selectable by their
+    // owner or an admin now, so an anon insert().select() would fail RLS
+    // for guest checkouts. We already know everything about the row we
+    // just wrote, so there's no need to read it back at all.
+    const { error } = await supabase.from('orders').insert({
+      id,
+      code,
+      customer_name: params.customerName,
+      phone: params.phone,
+      address: params.address,
+      postal_code: params.postalCode,
+      payment_method: params.paymentMethod,
+      status: 'pending',
+      total,
+      user_id: user?.id ?? null,
+      created_at: createdAt,
+    })
 
     if (error) {
       if (error.code === '23505') continue // unique_violation on code, try another
@@ -184,26 +191,43 @@ export async function createOrder(params: {
     }))
     const { error: itemsError } = await supabase
       .from('order_items')
-      .insert(itemRows.map(i => ({ ...i, order_id: orderRow.id })))
+      .insert(itemRows.map(i => ({ ...i, order_id: id })))
     if (itemsError) throw itemsError
 
-    return mapOrder({ ...(orderRow as OrderRow), order_items: itemRows })
+    return mapOrder({
+      id,
+      code,
+      customer_name: params.customerName,
+      phone: params.phone,
+      address: params.address,
+      postal_code: params.postalCode,
+      payment_method: params.paymentMethod,
+      status: 'pending',
+      total,
+      created_at: createdAt,
+      order_items: itemRows,
+    })
   }
 
   throw new Error('Could not generate a unique order code, please try again')
 }
 
 export async function fetchOrderByCode(code: string): Promise<Order | null> {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*, order_items(*)')
-    .eq('code', code.trim())
-    .maybeSingle()
+  const { data, error } = await supabase.rpc('get_order_by_code', { p_code: code.trim() })
   if (error) throw error
   return data ? mapOrder(data as OrderRow) : null
 }
 
 export async function fetchAllOrders(): Promise<Order[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*, order_items(*)')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data as OrderRow[]).map(mapOrder)
+}
+
+export async function fetchMyOrders(): Promise<Order[]> {
   const { data, error } = await supabase
     .from('orders')
     .select('*, order_items(*)')
@@ -291,4 +315,65 @@ export async function createReview(input: {
     .single()
   if (error) throw error
   return mapReview(data as ReviewRow)
+}
+
+// ─── Auth / profile ─────────────────────────────────────────────────────────
+
+interface ProfileRow {
+  id: string
+  phone: string | null
+  full_name: string | null
+  address: string | null
+  postal_code: string | null
+  role: 'customer' | 'admin'
+}
+
+function mapProfile(row: ProfileRow): Profile {
+  return {
+    id: row.id,
+    phone: row.phone ?? '',
+    fullName: row.full_name ?? '',
+    address: row.address ?? '',
+    postalCode: row.postal_code ?? '',
+    role: row.role,
+  }
+}
+
+// Normalizes a local Iranian mobile number (e.g. "0912 345 6789") to E.164
+// ("+989123456789") for Supabase phone auth.
+export function normalizeIranPhone(input: string): string {
+  const digits = input.replace(/\D/g, '')
+  const local = digits.startsWith('98') ? digits.slice(2) : digits.replace(/^0/, '')
+  return `+98${local}`
+}
+
+export async function sendPhoneOtp(phone: string): Promise<void> {
+  const { error } = await supabase.auth.signInWithOtp({ phone: normalizeIranPhone(phone) })
+  if (error) throw error
+}
+
+export async function verifyPhoneOtp(phone: string, token: string): Promise<void> {
+  const { error } = await supabase.auth.verifyOtp({ phone: normalizeIranPhone(phone), token, type: 'sms' })
+  if (error) throw error
+}
+
+export async function fetchProfile(): Promise<Profile | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+  if (error) throw error
+  return data ? mapProfile(data as ProfileRow) : null
+}
+
+export async function updateProfile(input: { fullName: string; address: string; postalCode: string }): Promise<Profile> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not signed in')
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ full_name: input.fullName, address: input.address, postal_code: input.postalCode })
+    .eq('id', user.id)
+    .select()
+    .single()
+  if (error) throw error
+  return mapProfile(data as ProfileRow)
 }

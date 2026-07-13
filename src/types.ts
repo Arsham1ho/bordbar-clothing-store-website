@@ -72,3 +72,12 @@ export interface Review {
   imageUrl?: string
   createdAt: string
 }
+
+export interface Profile {
+  id: string
+  phone: string
+  fullName: string
+  address: string
+  postalCode: string
+  role: 'customer' | 'admin'
+}
