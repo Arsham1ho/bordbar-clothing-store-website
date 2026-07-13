@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Lock, AlertCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
-export default function AdminLogin() {
+export default function AdminLogin({ accessDenied }: { accessDenied?: boolean }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -25,6 +25,13 @@ export default function AdminLogin() {
         </div>
         <h1 className="text-xl font-bold text-navy-900 text-center mb-1">پنل مدیریت بردبار</h1>
         <p className="text-sm text-navy-500 text-center mb-6">برای ورود اطلاعات حساب ادمین را وارد کنید</p>
+
+        {accessDenied && (
+          <div className="mb-4 flex items-center gap-2 text-red-500 text-sm bg-red-50 p-3 rounded-xl">
+            <AlertCircle size={16} />
+            <span>این حساب به پنل مدیریت دسترسی ندارد.</span>
+          </div>
+        )}
 
         <label className="block text-sm font-medium text-navy-700 mb-2">ایمیل</label>
         <input
