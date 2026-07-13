@@ -1,5 +1,9 @@
 {
+  "title": "بردبار | فروشگاه پوشاک زنانه",
   "description": "Explore a stylish women's clothing store in Persian, featuring product details, easy ordering, payment options, order tracking, and customer support.",
+  "icons": {
+    "icon": "/favicon.svg"
+  },
   "robots": {
     "index": false
   },

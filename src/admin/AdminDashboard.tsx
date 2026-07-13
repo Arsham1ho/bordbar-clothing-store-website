@@ -13,7 +13,7 @@ export default function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       <header className="bg-navy-900 border-b border-navy-700/50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div>
-            <span className="text-gold-400 text-xl font-bold">بردبار</span>
+            <span className="font-logo text-gold-400 text-2xl">بردبار</span>
             <span className="text-navy-300 text-sm mr-2">پنل مدیریت</span>
           </div>
           <button

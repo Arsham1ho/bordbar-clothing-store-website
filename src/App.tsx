@@ -4,11 +4,32 @@ import {
   MapPin, Phone, Clock, MessageCircle, Package, Truck,
   CheckCircle, XCircle, ArrowRight,
   BarChart2, Trash2, Plus, Minus, CreditCard, AlertCircle,
-  Home, Info, Send, Lock, Scale, Sparkles, User, SlidersHorizontal, RotateCcw
+  Home, Info, Send, Lock, Scale, Sparkles, User, SlidersHorizontal, RotateCcw,
+  ZoomIn, ZoomOut
 } from 'lucide-react'
-import type { CartItem, Order, Product } from './types'
+import type { CartItem, Order, Product, Review } from './types'
 import { ORDER_STATUS_LABELS, ORDER_STATUS_STEPS } from './types'
-import { createOrder, fetchOrderByCode, fetchProducts, updateOrderStatus } from './lib/db'
+import { createOrder, createReview, fetchOrderByCode, fetchProducts, fetchReviews, updateOrderStatus } from './lib/db'
+
+// ─── Brand icons ────────────────────────────────────────────────────────────
+
+function InstagramIcon({ size = 20, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
+      <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="17.6" cy="6.4" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+function TelegramIcon({ size = 20, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M21.05 3.76 2.42 11.14c-1.15.46-1.14 1.1-.21 1.38l4.77 1.49 1.83 5.6c.22.6.39.85.8.85.32 0 .46-.15.64-.33l1.83-1.78 3.8 2.8c.7.39 1.2.19 1.38-.65l2.5-11.8c.26-1.04-.4-1.5-1.71-.94Zm-11.9 9.02 7.75-4.9c.37-.22.7-.1.43.15l-6.4 5.78-.25 2.66-1.07-3.7Z" />
+    </svg>
+  )
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -269,13 +290,9 @@ function NewestProducts({
   compare: number[]
   toggleCompare: (id: number) => void
 }) {
-  const [tab, setTab] = useState('همه')
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const filtered = products
-    .filter(p => tab === 'همه' || p.category === tab)
-    .slice()
-    .sort((a, b) => b.id - a.id)
+  const filtered = products.slice().sort((a, b) => b.id - a.id)
 
   const scroll = (dir: 1 | -1) => {
     scrollRef.current?.scrollBy({ left: dir * 320, behavior: 'smooth' })
@@ -294,26 +311,11 @@ function NewestProducts({
       <div className="container mx-auto px-6">
         <div className="bg-navy-50 rounded-3xl p-6 md:p-8">
           <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <h2 className="text-3xl font-bold text-navy-900">جدید ترین محصولات</h2>
             <button onClick={onViewAll} className="text-navy-600 hover:text-navy-900 text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all">
               مشاهده همه
               <ChevronLeft size={16} />
             </button>
-            <h2 className="flex items-center gap-2 text-3xl font-bold text-navy-900">
-              جدید ترین محصولات
-              <Sparkles size={20} className="text-gold-500" />
-            </h2>
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-1 mb-6">
-            {categories.map(c => (
-              <button
-                key={c}
-                onClick={() => setTab(c)}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${tab === c ? 'bg-navy-800 text-white' : 'bg-white text-navy-700 border border-navy-200 hover:border-navy-500'}`}
-              >
-                {c}
-              </button>
-            ))}
           </div>
 
           <div className="relative">
@@ -357,6 +359,113 @@ function NewestProducts({
   )
 }
 
+function SiteFooter({ setPage, goToProducts }: { setPage: (p: Page) => void; goToProducts: (category?: string) => void }) {
+  return (
+    <footer className="bg-navy-950 py-12">
+      <div className="container mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-8 mb-10">
+        <div className="text-right">
+          <p className="text-white font-bold mb-3 text-sm">دسته‌بندی‌ها</p>
+          {categories.filter(c => c !== 'همه').map(c => (
+            <button key={c} onClick={() => goToProducts(c)} className="block text-navy-400 text-sm hover:text-gold-400 transition-colors mb-2">{c}</button>
+          ))}
+        </div>
+        <div className="text-right">
+          <p className="text-white font-bold mb-3 text-sm">خدمات</p>
+          {[['پیگیری سفارش', 'tracking'], ['پشتیبانی', 'chat'], ['لغو سفارش', 'order-cancel']].map(([l, p]) => (
+            <button key={p} onClick={() => setPage(p as Page)} className="block text-navy-400 text-sm hover:text-gold-400 transition-colors mb-2">{l}</button>
+          ))}
+        </div>
+        <div className="text-right">
+          <p className="text-white font-bold mb-3 text-sm">دسترسی سریع</p>
+          {[['خانه', 'home'], ['محصولات', 'products'], ['درباره ما', 'about']].map(([l, p]) => (
+            <button key={p} onClick={() => setPage(p as Page)} className="block text-navy-400 text-sm hover:text-gold-400 transition-colors mb-2">{l}</button>
+          ))}
+        </div>
+        <div className="text-right">
+          <p className="text-white font-bold mb-3 text-sm">تماس</p>
+          <p className="text-navy-400 text-sm mb-1">رشت، گلسار، بلوار گیلان</p>
+          <p className="text-navy-400 text-sm mb-3">رو به روی برج گلسار</p>
+          <p className="text-navy-400 text-sm mb-1" dir="ltr">013-33456789</p>
+          <p className="text-navy-400 text-sm">شنبه تا چهارشنبه ۱۰ تا ۲۱</p>
+          <p className="text-navy-400 text-sm">پنجشنبه ۱۰ تا ۲۰</p>
+        </div>
+        <div className="text-right">
+          <p className="font-logo text-gold-400 text-2xl mb-3">بردبار</p>
+          <p className="text-navy-400 text-sm leading-relaxed mb-5">پوشاک زنانه با کیفیت اروپایی در رشت</p>
+          <div className="flex gap-2 justify-start">
+            <button aria-label="اینستاگرام" className="w-10 h-10 rounded-xl bg-navy-800 hover:bg-navy-700 flex items-center justify-center transition-colors">
+              <InstagramIcon size={16} className="text-navy-200" />
+            </button>
+            <button aria-label="تلگرام" className="w-10 h-10 rounded-xl bg-navy-800 hover:bg-navy-700 flex items-center justify-center transition-colors">
+              <TelegramIcon size={16} className="text-navy-200" />
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="border-t border-navy-800 pt-6 text-center text-navy-600 text-sm">
+        © ۱۴۰۳ فروشگاه بردبار — تمام حقوق محفوظ است
+      </div>
+    </footer>
+  )
+}
+
+function StoreInfoSection() {
+  return (
+    <section className="bg-navy-800 py-16">
+      <div className="container mx-auto px-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.7fr_1.15fr] gap-6 items-center">
+          <div className="order-1 rounded-3xl overflow-hidden" style={{ aspectRatio: '5/4' }}>
+            <img
+              src="https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=700&h=500&fit=crop&auto=format"
+              alt="فروشگاه بردبار"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="text-right order-2">
+            <p className="text-gold-400 text-sm font-medium tracking-widest mb-3 uppercase">فروشگاه بردبار</p>
+            <h2 className="text-3xl font-bold text-white mb-6">از ما دیدن کنید</h2>
+            <div className="space-y-4 mb-8">
+              {[
+                { icon: <MapPin size={18} />, title: 'آدرس', text: 'رشت، گلسار، بلوار گیلان، رو به روی برج گلسار' },
+                { icon: <Phone size={18} />, title: 'تماس', text: '۰۱۳-۳۳۴۵۶۷۸۹' },
+                { icon: <Clock size={18} />, title: 'ساعت کاری', text: 'شنبه تا چهارشنبه ۱۰ تا ۲۱ | پنجشنبه ۱۰ تا ۲۰' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-start gap-3 justify-start">
+                  <div className="w-10 h-10 rounded-xl bg-navy-700 flex items-center justify-center text-gold-400 flex-shrink-0">
+                    {item.icon}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-white font-semibold text-sm">{item.title}</p>
+                    <p className="text-navy-300 text-sm">{item.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <a
+              href="https://www.google.com/maps/place/Golsar+Tower/@37.3044059,49.5796787,17z/data=!3m1!4b1!4m6!3m5!1s0x401fd8c966151241:0x7a580f8b3205f1aa!8m2!3d37.3044059!4d49.5822536!16s%2Fg%2F11btt7sm7j"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-gold-500 text-navy-900 font-bold px-6 py-3 rounded-2xl hover:bg-gold-400 transition-colors"
+            >
+              <MapPin size={16} />
+              مسیریابی تا فروشگاه
+            </a>
+          </div>
+          <div className="order-3 rounded-3xl overflow-hidden" style={{ aspectRatio: '5/4' }}>
+            <iframe
+              title="موقعیت فروشگاه بردبار روی نقشه"
+              src="https://www.google.com/maps?q=37.3044059,49.5822536&z=17&output=embed"
+              className="w-full h-full border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function FeaturesBar() {
   const features = [
     { icon: <Truck size={20} />, title: 'ارسال رایگان', desc: 'برای خریدهای بالای ۵۰۰ هزار تومان' },
@@ -386,7 +495,8 @@ function FeaturesBar() {
 function ProductsPage({
   products,
   loading,
-  initialCategory,
+  cat,
+  onCatChange,
   initialSearch,
   setCart,
   onView,
@@ -395,14 +505,14 @@ function ProductsPage({
 }: {
   products: Product[]
   loading: boolean
-  initialCategory?: string
+  cat: string
+  onCatChange: (cat: string) => void
   initialSearch?: string
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>
   onView: (p: Product) => void
   compare: number[]
   toggleCompare: (id: number) => void
 }) {
-  const [cat, setCat] = useState(initialCategory && categories.includes(initialCategory) ? initialCategory : 'همه')
   const [search, setSearch] = useState(initialSearch ?? '')
   const [sort, setSort] = useState('پیش‌فرض')
   const [minPrice, setMinPrice] = useState('')
@@ -430,7 +540,7 @@ function ProductsPage({
   if (sort === 'محبوب‌ترین') filtered = [...filtered].sort((a, b) => b.rating - a.rating)
 
   const resetFilters = () => {
-    setCat('همه')
+    onCatChange('همه')
     setSearch('')
     setMinPrice('')
     setMaxPrice('')
@@ -440,15 +550,26 @@ function ProductsPage({
   return (
     <div className="min-h-screen bg-cream py-10">
       <div className="container mx-auto px-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <select
-            value={sort}
-            onChange={e => setSort(e.target.value)}
-            className="px-4 py-2 rounded-xl border border-navy-200 text-sm bg-white focus:outline-none focus:border-navy-500"
-          >
-            {['پیش‌فرض', 'ارزان‌ترین', 'گران‌ترین', 'محبوب‌ترین'].map(s => <option key={s}>{s}</option>)}
-          </select>
-          <h2 className="text-3xl font-bold text-navy-900">تمام محصولات</h2>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-4 border-b border-navy-100">
+          <div className="flex items-center gap-4 flex-wrap">
+            <h2 className="text-3xl font-bold text-navy-900">تمام محصولات</h2>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="flex items-center gap-1.5 text-sm text-navy-500 whitespace-nowrap">
+                <SlidersHorizontal size={14} />
+                مرتب‌سازی:
+              </span>
+              {['پیش‌فرض', 'محبوب‌ترین', 'ارزان‌ترین', 'گران‌ترین'].map(s => (
+                <button
+                  key={s}
+                  onClick={() => setSort(s)}
+                  className={`text-sm font-medium pb-1 border-b-2 transition-colors whitespace-nowrap ${sort === s ? 'text-gold-500 border-gold-500' : 'text-navy-500 border-transparent hover:text-navy-800'}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+          <span className="text-xs text-navy-400 whitespace-nowrap">{filtered.length.toLocaleString('fa-IR')} کالا</span>
         </div>
 
         {search && (
@@ -482,7 +603,7 @@ function ProductsPage({
                 {categories.map(c => (
                   <button
                     key={c}
-                    onClick={() => setCat(c)}
+                    onClick={() => onCatChange(c)}
                     className={`text-right px-3 py-2 rounded-xl text-sm transition-colors ${cat === c ? 'bg-navy-800 text-white font-medium' : 'text-navy-600 hover:bg-navy-50'}`}
                   >
                     {c}
@@ -556,18 +677,56 @@ function ProductsPage({
 
 function ProductDetailPage({
   product,
+  products,
   setCart,
   onBack,
+  onView,
+  compare,
+  toggleCompare,
+  setPage,
+  goToProducts,
 }: {
   product: Product
+  products: Product[]
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>
   onBack: () => void
+  onView: (p: Product) => void
+  compare: number[]
+  toggleCompare: (id: number) => void
+  setPage: (p: Page) => void
+  goToProducts: (category?: string) => void
 }) {
   const [size, setSize] = useState(product.sizes[0])
   const [color, setColor] = useState(product.colors[0])
   const [img, setImg] = useState(0)
+  const [zoom, setZoom] = useState(1)
   const [tab, setTab] = useState<'desc' | 'material' | 'care'>('desc')
   const [added, setAdded] = useState(false)
+
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [reviewsLoading, setReviewsLoading] = useState(true)
+  const [reviewName, setReviewName] = useState('')
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewQuality, setReviewQuality] = useState(5)
+  const [reviewPrice, setReviewPrice] = useState(5)
+  const [reviewDelivery, setReviewDelivery] = useState(5)
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewImage, setReviewImage] = useState<File | null>(null)
+  const [submittingReview, setSubmittingReview] = useState(false)
+  const [reviewError, setReviewError] = useState('')
+
+  useEffect(() => {
+    setSize(product.sizes[0])
+    setColor(product.colors[0])
+    setImg(0)
+    setZoom(1)
+    window.scrollTo({ top: 0 })
+    setReviewsLoading(true)
+    fetchReviews(product.id)
+      .then(setReviews)
+      .catch(() => setReviews([]))
+      .finally(() => setReviewsLoading(false))
+  }, [product.id])
 
   const addToCart = () => {
     setCart(prev => {
@@ -579,7 +738,40 @@ function ProductDetailPage({
     setTimeout(() => setAdded(false), 2000)
   }
 
+  const submitReview = async () => {
+    if (!reviewName.trim() || !reviewComment.trim()) return
+    setSubmittingReview(true)
+    setReviewError('')
+    try {
+      const review = await createReview({
+        productId: product.id,
+        authorName: reviewName.trim(),
+        rating: reviewRating,
+        qualityRating: reviewQuality,
+        priceRating: reviewPrice,
+        deliveryRating: reviewDelivery,
+        comment: reviewComment.trim(),
+        imageFile: reviewImage ?? undefined,
+      })
+      setReviews(prev => [review, ...prev])
+      setReviewName('')
+      setReviewComment('')
+      setReviewRating(5)
+      setReviewQuality(5)
+      setReviewPrice(5)
+      setReviewDelivery(5)
+      setReviewImage(null)
+    } catch {
+      setReviewError('خطا در ثبت نظر. لطفاً دوباره تلاش کنید.')
+    } finally {
+      setSubmittingReview(false)
+    }
+  }
+
+  const similarProducts = products.filter(p => p.category === product.category && p.id !== product.id).slice(0, 4)
+
   return (
+    <>
     <div className="min-h-screen bg-cream py-10">
       <div className="container mx-auto px-6">
         <button onClick={onBack} className="flex items-center gap-2 text-navy-600 hover:text-navy-900 transition-colors mb-8 group">
@@ -590,14 +782,35 @@ function ProductDetailPage({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Images */}
           <div>
-            <div className="rounded-3xl overflow-hidden bg-navy-50 mb-4" style={{ aspectRatio: '4/5' }}>
-              <img src={product.images[img]} alt={product.name} className="w-full h-full object-cover" />
+            <div className="relative rounded-3xl overflow-hidden bg-navy-50 mb-4" style={{ aspectRatio: '1/1' }}>
+              <img
+                src={product.images[img]}
+                alt={product.name}
+                className="w-full h-full object-cover transition-transform duration-300"
+                style={{ transform: `scale(${zoom})` }}
+              />
+              <div className="absolute bottom-3 left-3 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-xl p-1 shadow-sm">
+                <button
+                  onClick={() => setZoom(z => Math.min(2.5, +(z + 0.25).toFixed(2)))}
+                  disabled={zoom >= 2.5}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-navy-700 hover:bg-navy-50 transition-colors disabled:opacity-30"
+                >
+                  <ZoomIn size={16} />
+                </button>
+                <button
+                  onClick={() => setZoom(z => Math.max(1, +(z - 0.25).toFixed(2)))}
+                  disabled={zoom <= 1}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-navy-700 hover:bg-navy-50 transition-colors disabled:opacity-30"
+                >
+                  <ZoomOut size={16} />
+                </button>
+              </div>
             </div>
             <div className="flex gap-3">
               {product.images.map((src, i) => (
                 <button
                   key={i}
-                  onClick={() => setImg(i)}
+                  onClick={() => { setImg(i); setZoom(1) }}
                   className={`w-20 h-24 rounded-xl overflow-hidden border-2 transition-colors ${img === i ? 'border-navy-600' : 'border-transparent'}`}
                 >
                   <img src={src} alt="" className="w-full h-full object-cover" />
@@ -689,8 +902,133 @@ function ProductDetailPage({
             </div>
           </div>
         </div>
+
+        {/* Reviews */}
+        <div className="mt-16 pt-10 border-t border-navy-200">
+          <h2 className="text-2xl font-bold text-navy-900 mb-6">نظرات مشتریان</h2>
+
+          <div className="bg-white rounded-2xl border border-navy-100/60 p-6 mb-8">
+            <p className="font-semibold text-navy-800 mb-4">ثبت نظر شما</p>
+            <input
+              value={reviewName}
+              onChange={e => setReviewName(e.target.value)}
+              placeholder="نام شما"
+              className="w-full px-4 py-2.5 rounded-xl border border-navy-200 text-sm focus:outline-none focus:border-navy-500 text-right mb-4"
+            />
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              {([
+                ['امتیاز کلی', reviewRating, setReviewRating],
+                ['کیفیت', reviewQuality, setReviewQuality],
+                ['قیمت', reviewPrice, setReviewPrice],
+                ['ارسال', reviewDelivery, setReviewDelivery],
+              ] as const).map(([label, value, setter]) => (
+                <div key={label}>
+                  <p className="text-xs text-navy-500 mb-1.5">{label}</p>
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <button key={n} type="button" onClick={() => setter(n)}>
+                        <Star size={17} className={n <= value ? 'fill-amber-400 text-amber-400' : 'text-gray-300'} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <textarea
+              value={reviewComment}
+              onChange={e => setReviewComment(e.target.value)}
+              placeholder="نظر خود را درباره این محصول بنویسید..."
+              rows={3}
+              className="w-full px-4 py-2.5 rounded-xl border border-navy-200 text-sm focus:outline-none focus:border-navy-500 text-right mb-4"
+            />
+
+            <label className="flex items-center gap-2 text-sm text-navy-600 border border-dashed border-navy-200 rounded-xl px-4 py-2.5 cursor-pointer hover:border-navy-400 transition-colors mb-4 w-fit">
+              <Package size={15} />
+              {reviewImage ? reviewImage.name : 'افزودن عکس (اختیاری)'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => setReviewImage(e.target.files?.[0] ?? null)}
+              />
+            </label>
+
+            {reviewError && <p className="text-red-500 text-sm mb-3">{reviewError}</p>}
+            <button
+              onClick={submitReview}
+              disabled={submittingReview || !reviewName.trim() || !reviewComment.trim()}
+              className="bg-navy-800 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-navy-600 transition-colors disabled:opacity-50"
+            >
+              {submittingReview ? 'در حال ثبت...' : 'ثبت نظر'}
+            </button>
+          </div>
+
+          {reviewsLoading ? (
+            <p className="text-navy-400 text-center py-8">در حال بارگذاری نظرات...</p>
+          ) : reviews.length === 0 ? (
+            <p className="text-navy-400 text-center py-8">هنوز نظری برای این محصول ثبت نشده است. اولین نفر باشید!</p>
+          ) : (
+            <div className="space-y-4">
+              {reviews.map(r => (
+                <div key={r.id} className="bg-white rounded-2xl border border-navy-100/50 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-navy-400">{formatDate(r.createdAt)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-navy-900 text-sm">{r.authorName}</span>
+                      <div className="flex">
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <Star key={n} size={13} className={n <= r.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-navy-700 text-sm leading-relaxed mb-3">{r.comment}</p>
+                  {r.imageUrl && (
+                    <img src={r.imageUrl} alt="تصویر نظر کاربر" className="w-24 h-24 object-cover rounded-xl mb-3" />
+                  )}
+                  <div className="flex items-center gap-4 text-xs text-navy-500 border-t border-navy-50 pt-3">
+                    {([['کیفیت', r.qualityRating], ['قیمت', r.priceRating], ['ارسال', r.deliveryRating]] as const).map(([label, val]) => (
+                      <span key={label} className="flex items-center gap-1">
+                        {label}: <span className="font-bold text-navy-700">{val.toLocaleString('fa-IR')}</span>
+                        <Star size={11} className="fill-amber-400 text-amber-400" />
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Similar products */}
+        {similarProducts.length > 0 && (
+          <div className="mt-16">
+            <h2 className="text-2xl font-bold text-navy-900 mb-6">محصولات مشابه</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+              {similarProducts.map(p => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  onView={() => onView(p)}
+                  onAddCart={() => setCart(prev => {
+                    const ex = prev.find(i => i.product.id === p.id)
+                    if (ex) return prev.map(i => i.product.id === p.id ? { ...i, qty: i.qty + 1 } : i)
+                    return [...prev, { product: p, size: p.sizes[0], color: p.colors[0], qty: 1 }]
+                  })}
+                  onCompare={() => toggleCompare(p.id)}
+                  comparing={compare.includes(p.id)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
+
+    <SiteFooter setPage={setPage} goToProducts={goToProducts} />
+    </>
   )
 }
 
@@ -1388,8 +1726,8 @@ function AboutPage() {
           <h3 className="font-bold text-navy-900 mb-4">ما را در شبکه‌های اجتماعی دنبال کنید</h3>
           <div className="flex gap-4 justify-center">
             {[
-              { icon: <span className="text-lg font-bold">📷</span>, label: 'اینستاگرام', color: 'bg-gradient-to-br from-purple-500 to-pink-500' },
-              { icon: <MessageCircle size={20} />, label: 'تلگرام', color: 'bg-blue-500' },
+              { icon: <InstagramIcon size={20} />, label: 'اینستاگرام', color: 'bg-pink-600' },
+              { icon: <TelegramIcon size={20} />, label: 'تلگرام', color: 'bg-blue-500' },
             ].map((s, i) => (
               <button key={i} className={`${s.color} text-white px-6 py-3 rounded-2xl flex items-center gap-2 font-medium hover:opacity-90 transition-opacity`}>
                 {s.icon}
@@ -1414,24 +1752,28 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([])
   const [productsLoading, setProductsLoading] = useState(true)
   const [headerSearch, setHeaderSearch] = useState('')
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false)
+  const [showCartPreview, setShowCartPreview] = useState(false)
   const [showLoginNotice, setShowLoginNotice] = useState(false)
-  const [productsInitialCategory, setProductsInitialCategory] = useState<string | undefined>(undefined)
+  const [productsCategory, setProductsCategory] = useState('همه')
   const [productsInitialSearch, setProductsInitialSearch] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     fetchProducts()
       .then(setProducts)
+      .catch(() => setProducts([]))
       .finally(() => setProductsLoading(false))
   }, [])
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0)
+  const cartTotal = cart.reduce((s, i) => s + i.product.price * i.qty, 0)
 
   const toggleCompare = (id: number) => {
     setCompare(prev => prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 3 ? [...prev, id] : prev)
   }
 
   const goToProducts = (category?: string, search?: string) => {
-    setProductsInitialCategory(category)
+    setProductsCategory(category ?? 'همه')
     setProductsInitialSearch(search)
     setPage('products')
     setMobileMenu(false)
@@ -1440,6 +1782,17 @@ export default function App() {
   const notifyLoginComingSoon = () => {
     setShowLoginNotice(true)
     setTimeout(() => setShowLoginNotice(false), 2200)
+  }
+
+  const searchSuggestions = headerSearch.trim()
+    ? products.filter(p => p.name.includes(headerSearch.trim())).slice(0, 6)
+    : []
+
+  const openProductFromSearch = (p: Product) => {
+    setSelectedProduct(p)
+    setPage('product')
+    setHeaderSearch('')
+    setShowSearchSuggestions(false)
   }
 
   const nav = [
@@ -1457,7 +1810,7 @@ export default function App() {
         <div className="container mx-auto px-6 py-4 flex items-center justify-between gap-4">
           {/* Logo */}
           <button onClick={() => setPage('home')} className="text-right flex-shrink-0">
-            <span className="text-gold-400 text-2xl font-bold tracking-tight">بردبار</span>
+            <span className="font-logo text-gold-400 text-4xl tracking-tight">بردبار</span>
             <span className="text-white text-xs block -mt-1 tracking-widest opacity-60">BORDBAR</span>
           </button>
 
@@ -1467,11 +1820,42 @@ export default function App() {
               <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-navy-400" />
               <input
                 value={headerSearch}
-                onChange={e => setHeaderSearch(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && headerSearch.trim()) goToProducts(undefined, headerSearch) }}
+                onChange={e => { setHeaderSearch(e.target.value); setShowSearchSuggestions(true) }}
+                onFocus={() => setShowSearchSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSearchSuggestions(false), 150)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && headerSearch.trim()) {
+                    setShowSearchSuggestions(false)
+                    goToProducts(undefined, headerSearch)
+                  }
+                  if (e.key === 'Escape') setShowSearchSuggestions(false)
+                }}
                 placeholder="جستجو میان محصولات..."
                 className="w-full pr-9 pl-4 py-2.5 rounded-xl bg-navy-800 border border-navy-700 text-white placeholder-navy-400 text-sm focus:outline-none focus:border-gold-400"
               />
+              {showSearchSuggestions && searchSuggestions.length > 0 && (
+                <div className="absolute top-full mt-2 w-full bg-white rounded-xl shadow-xl border border-navy-100 overflow-hidden z-30 text-right">
+                  {searchSuggestions.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => openProductFromSearch(p)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-navy-50 transition-colors border-b border-navy-50 last:border-0"
+                    >
+                      <img src={p.images[0]} alt={p.name} className="w-10 h-12 object-cover rounded-lg flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-navy-900 truncate">{p.name}</p>
+                        <p className="text-xs text-navy-500">{formatPrice(p.price)}</p>
+                      </div>
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => { setShowSearchSuggestions(false); goToProducts(undefined, headerSearch) }}
+                    className="w-full text-center py-2.5 text-sm text-gold-500 hover:bg-navy-50 transition-colors font-medium"
+                  >
+                    مشاهده همه نتایج برای «{headerSearch}»
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1500,9 +1884,70 @@ export default function App() {
                 </div>
               )}
             </div>
+            <div
+              className="relative hidden md:block"
+              onMouseEnter={() => setShowCartPreview(true)}
+              onMouseLeave={() => setShowCartPreview(false)}
+            >
+              <button
+                onClick={() => setPage('cart')}
+                className="relative w-10 h-10 rounded-xl bg-navy-800 text-white flex items-center justify-center hover:bg-navy-700 transition-colors"
+              >
+                <ShoppingBag size={18} />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-gold-500 text-navy-900 text-xs font-bold flex items-center justify-center">
+                    {cartCount.toLocaleString('fa-IR')}
+                  </span>
+                )}
+              </button>
+
+              {showCartPreview && (
+                <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-navy-100 overflow-hidden z-30 text-right">
+                  {cart.length === 0 ? (
+                    <div className="p-6 text-center text-navy-400">
+                      <ShoppingBag size={28} className="mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">سبد خرید شما خالی است</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="max-h-72 overflow-y-auto divide-y divide-navy-50">
+                        {cart.slice(0, 4).map((item, i) => (
+                          <div key={i} className="flex items-center gap-3 p-3">
+                            <img src={item.product.images[0]} alt={item.product.name} className="w-11 h-14 object-cover rounded-lg flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-navy-900 truncate">{item.product.name}</p>
+                              <p className="text-xs text-navy-400">سایز {item.size} · {item.qty.toLocaleString('fa-IR')} عدد</p>
+                            </div>
+                            <p className="text-xs font-bold text-navy-800 flex-shrink-0">{formatPrice(item.product.price * item.qty)}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {cart.length > 4 && (
+                        <p className="px-3 py-2 text-xs text-navy-400 border-t border-navy-50">
+                          و {(cart.length - 4).toLocaleString('fa-IR')} مورد دیگر
+                        </p>
+                      )}
+                      <div className="p-3 border-t border-navy-100">
+                        <div className="flex justify-between text-sm font-bold text-navy-900 mb-3">
+                          <span>{formatPrice(cartTotal)}</span>
+                          <span>جمع کل</span>
+                        </div>
+                        <button
+                          onClick={() => setPage('cart')}
+                          className="w-full bg-navy-800 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-navy-600 transition-colors"
+                        >
+                          مشاهده سبد خرید
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => setPage('cart')}
-              className="relative w-10 h-10 rounded-xl bg-navy-800 text-white flex items-center justify-center hover:bg-navy-700 transition-colors"
+              className="md:hidden relative w-10 h-10 rounded-xl bg-navy-800 text-white flex items-center justify-center hover:bg-navy-700 transition-colors"
             >
               <ShoppingBag size={18} />
               {cartCount > 0 && (
@@ -1525,12 +1970,12 @@ export default function App() {
           <div className="container mx-auto px-6 flex items-center gap-1 overflow-x-auto">
             {([
               { label: 'خانه', active: page === 'home', action: () => setPage('home') },
-              { label: 'همه محصولات', active: page === 'products' && !productsInitialCategory, action: () => goToProducts() },
-              { label: 'مانتو', active: page === 'products' && productsInitialCategory === 'مانتو', action: () => goToProducts('مانتو') },
-              { label: 'بلوز', active: page === 'products' && productsInitialCategory === 'بلوز', action: () => goToProducts('بلوز') },
-              { label: 'شلوار', active: page === 'products' && productsInitialCategory === 'شلوار', action: () => goToProducts('شلوار') },
-              { label: 'ست', active: page === 'products' && productsInitialCategory === 'ست', action: () => goToProducts('ست') },
-              { label: 'پیراهن', active: page === 'products' && productsInitialCategory === 'پیراهن', action: () => goToProducts('پیراهن') },
+              { label: 'همه محصولات', active: page === 'products' && productsCategory === 'همه', action: () => goToProducts() },
+              { label: 'مانتو', active: page === 'products' && productsCategory === 'مانتو', action: () => goToProducts('مانتو') },
+              { label: 'بلوز', active: page === 'products' && productsCategory === 'بلوز', action: () => goToProducts('بلوز') },
+              { label: 'شلوار', active: page === 'products' && productsCategory === 'شلوار', action: () => goToProducts('شلوار') },
+              { label: 'ست', active: page === 'products' && productsCategory === 'ست', action: () => goToProducts('ست') },
+              { label: 'پیراهن', active: page === 'products' && productsCategory === 'پیراهن', action: () => goToProducts('پیراهن') },
               { label: 'درباره ما', active: page === 'about', action: () => setPage('about') },
             ]).map(item => (
               <button
@@ -1639,108 +2084,11 @@ export default function App() {
               </div>
             </section>
 
-            {/* Store Info */}
-            <section className="bg-navy-800 py-16">
-              <div className="container mx-auto px-6">
-                <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.7fr_1.15fr] gap-6 items-center">
-                  <div className="order-1 rounded-3xl overflow-hidden" style={{ aspectRatio: '5/4' }}>
-                    <img
-                      src="https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=700&h=500&fit=crop&auto=format"
-                      alt="فروشگاه بردبار"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="text-right order-2">
-                    <p className="text-gold-400 text-sm font-medium tracking-widest mb-3 uppercase">فروشگاه بردبار</p>
-                    <h2 className="text-3xl font-bold text-white mb-6">از ما دیدن کنید</h2>
-                    <div className="space-y-4 mb-8">
-                      {[
-                        { icon: <MapPin size={18} />, title: 'آدرس', text: 'رشت، گلسار، بلوار گیلان، رو به روی برج گلسار' },
-                        { icon: <Phone size={18} />, title: 'تماس', text: '۰۱۳-۳۳۴۵۶۷۸۹' },
-                        { icon: <Clock size={18} />, title: 'ساعت کاری', text: 'شنبه تا چهارشنبه ۱۰ تا ۲۱ | پنجشنبه ۱۰ تا ۲۰' },
-                      ].map((item, i) => (
-                        <div key={i} className="flex items-start gap-3 justify-start">
-                          <div className="w-10 h-10 rounded-xl bg-navy-700 flex items-center justify-center text-gold-400 flex-shrink-0">
-                            {item.icon}
-                          </div>
-                          <div className="text-right">
-                            <p className="text-white font-semibold text-sm">{item.title}</p>
-                            <p className="text-navy-300 text-sm">{item.text}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <a
-                      href="https://www.google.com/maps/place/Golsar+Tower/@37.3044059,49.5796787,17z/data=!3m1!4b1!4m6!3m5!1s0x401fd8c966151241:0x7a580f8b3205f1aa!8m2!3d37.3044059!4d49.5822536!16s%2Fg%2F11btt7sm7j"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 bg-gold-500 text-navy-900 font-bold px-6 py-3 rounded-2xl hover:bg-gold-400 transition-colors"
-                    >
-                      <MapPin size={16} />
-                      مسیریابی تا فروشگاه
-                    </a>
-                  </div>
-                  <div className="order-3 rounded-3xl overflow-hidden" style={{ aspectRatio: '5/4' }}>
-                    <iframe
-                      title="موقعیت فروشگاه بردبار روی نقشه"
-                      src="https://www.google.com/maps?q=37.3044059,49.5822536&z=17&output=embed"
-                      className="w-full h-full border-0"
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                    />
-                  </div>
-                </div>
-              </div>
-            </section>
+            <StoreInfoSection />
 
             <FeaturesBar />
 
-            {/* Footer */}
-            <footer className="bg-navy-950 py-12">
-              <div className="container mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-8 mb-10">
-                <div className="text-right">
-                  <p className="text-white font-bold mb-3 text-sm">دسته‌بندی‌ها</p>
-                  {categories.filter(c => c !== 'همه').map(c => (
-                    <button key={c} onClick={() => goToProducts(c)} className="block text-navy-400 text-sm hover:text-gold-400 transition-colors mb-2">{c}</button>
-                  ))}
-                </div>
-                <div className="text-right">
-                  <p className="text-white font-bold mb-3 text-sm">خدمات</p>
-                  {[['پیگیری سفارش', 'tracking'], ['پشتیبانی', 'chat'], ['لغو سفارش', 'order-cancel']].map(([l, p]) => (
-                    <button key={p} onClick={() => setPage(p as Page)} className="block text-navy-400 text-sm hover:text-gold-400 transition-colors mb-2">{l}</button>
-                  ))}
-                </div>
-                <div className="text-right">
-                  <p className="text-white font-bold mb-3 text-sm">دسترسی سریع</p>
-                  {[['خانه', 'home'], ['محصولات', 'products'], ['درباره ما', 'about']].map(([l, p]) => (
-                    <button key={p} onClick={() => setPage(p as Page)} className="block text-navy-400 text-sm hover:text-gold-400 transition-colors mb-2">{l}</button>
-                  ))}
-                </div>
-                <div className="text-right">
-                  <p className="text-white font-bold mb-3 text-sm">تماس</p>
-                  <p className="text-navy-400 text-sm mb-1">رشت، گلسار، بلوار گیلان</p>
-                  <p className="text-navy-400 text-sm mb-3">رو به روی برج گلسار</p>
-                  <p className="text-navy-400 text-sm mb-1" dir="ltr">013-33456789</p>
-                  <p className="text-navy-400 text-sm">شنبه تا چهارشنبه ۱۰ تا ۲۱</p>
-                  <p className="text-navy-400 text-sm">پنجشنبه ۱۰ تا ۲۰</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-gold-400 font-bold text-lg mb-3">بردبار</p>
-                  <p className="text-navy-400 text-sm leading-relaxed mb-5">پوشاک زنانه با کیفیت اروپایی در رشت</p>
-                  <div className="flex gap-2 justify-start">
-                    <button aria-label="اینستاگرام" className="w-10 h-10 rounded-xl bg-navy-800 hover:bg-navy-700 flex items-center justify-center transition-colors">
-                      <span className="text-base">📷</span>
-                    </button>
-                    <button aria-label="تلگرام" className="w-10 h-10 rounded-xl bg-navy-800 hover:bg-navy-700 flex items-center justify-center transition-colors">
-                      <MessageCircle size={17} className="text-navy-200" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="border-t border-navy-800 pt-6 text-center text-navy-600 text-sm">
-                © ۱۴۰۳ فروشگاه بردبار — تمام حقوق محفوظ است
-              </div>
-            </footer>
+            <SiteFooter setPage={setPage} goToProducts={goToProducts} />
           </>
         )}
 
@@ -1748,7 +2096,8 @@ export default function App() {
           <ProductsPage
             products={products}
             loading={productsLoading}
-            initialCategory={productsInitialCategory}
+            cat={productsCategory}
+            onCatChange={setProductsCategory}
             initialSearch={productsInitialSearch}
             setCart={setCart}
             onView={p => { setSelectedProduct(p); setPage('product') }}
@@ -1760,8 +2109,14 @@ export default function App() {
         {page === 'product' && selectedProduct && (
           <ProductDetailPage
             product={selectedProduct}
+            products={products}
             setCart={setCart}
             onBack={() => setPage('products')}
+            onView={p => { setSelectedProduct(p); setPage('product') }}
+            compare={compare}
+            toggleCompare={toggleCompare}
+            setPage={setPage}
+            goToProducts={goToProducts}
           />
         )}
 

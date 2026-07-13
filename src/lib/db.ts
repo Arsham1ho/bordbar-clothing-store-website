@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { CartItem, Order, OrderStatus, Product } from '../types'
+import type { CartItem, Order, OrderStatus, Product, Review } from '../types'
 
 // ─── Products ───────────────────────────────────────────────────────────────
 
@@ -215,4 +215,80 @@ export async function fetchAllOrders(): Promise<Order[]> {
 export async function updateOrderStatus(id: string, status: OrderStatus): Promise<void> {
   const { error } = await supabase.from('orders').update({ status }).eq('id', id)
   if (error) throw error
+}
+
+// ─── Reviews ────────────────────────────────────────────────────────────────
+
+interface ReviewRow {
+  id: string
+  product_id: number
+  author_name: string
+  rating: number
+  quality_rating: number
+  price_rating: number
+  delivery_rating: number
+  comment: string
+  image_url: string | null
+  created_at: string
+}
+
+function mapReview(row: ReviewRow): Review {
+  return {
+    id: row.id,
+    productId: row.product_id,
+    authorName: row.author_name,
+    rating: row.rating,
+    qualityRating: row.quality_rating,
+    priceRating: row.price_rating,
+    deliveryRating: row.delivery_rating,
+    comment: row.comment,
+    imageUrl: row.image_url ?? undefined,
+    createdAt: row.created_at,
+  }
+}
+
+export async function fetchReviews(productId: number): Promise<Review[]> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('*')
+    .eq('product_id', productId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data as ReviewRow[]).map(mapReview)
+}
+
+export async function createReview(input: {
+  productId: number
+  authorName: string
+  rating: number
+  qualityRating: number
+  priceRating: number
+  deliveryRating: number
+  comment: string
+  imageFile?: File
+}): Promise<Review> {
+  let imageUrl: string | null = null
+  if (input.imageFile) {
+    const path = `${input.productId}/${crypto.randomUUID()}-${input.imageFile.name}`
+    const { error: uploadError } = await supabase.storage.from('review-photos').upload(path, input.imageFile)
+    if (uploadError) throw uploadError
+    imageUrl = supabase.storage.from('review-photos').getPublicUrl(path).data.publicUrl
+  }
+
+  const { data, error } = await supabase
+    .from('reviews')
+    .insert({
+      product_id: input.productId,
+      author_name: input.authorName,
+      rating: input.rating,
+      quality_rating: input.qualityRating,
+      price_rating: input.priceRating,
+      delivery_rating: input.deliveryRating,
+      comment: input.comment,
+      image_url: imageUrl,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return mapReview(data as ReviewRow)
 }
