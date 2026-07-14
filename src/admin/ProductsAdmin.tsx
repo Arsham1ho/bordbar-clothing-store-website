@@ -217,9 +217,9 @@ function ProductForm({
   const previewImage = splitList(draft.images)[0]
 
   return (
-    <div className="fixed inset-0 bg-navy-950/50 flex items-center justify-center p-4 z-50" onClick={onCancel}>
+    <div className="fixed inset-0 bg-navy-950/50 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50" onClick={onCancel}>
       <div
-        className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-2xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 p-6 pb-5 border-b border-navy-100 sticky top-0 bg-white rounded-t-3xl z-10">
@@ -314,7 +314,7 @@ function ProductForm({
           </div>
         </div>
 
-        <div className="flex gap-3 p-6 pt-4 border-t border-navy-100 sticky bottom-0 bg-white rounded-b-3xl">
+        <div className="flex gap-3 p-6 pt-4 border-t border-navy-100 sticky bottom-0 bg-white sm:rounded-b-3xl">
           <button onClick={onCancel} className="flex-1 border border-navy-200 text-navy-700 py-3 rounded-2xl font-medium hover:border-navy-500 transition-colors">
             انصراف
           </button>
