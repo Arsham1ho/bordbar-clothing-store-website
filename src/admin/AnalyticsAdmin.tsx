@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, ShoppingBag, Package, CircleDollarSign } from 'lucide-react'
+import { TrendingUp, ShoppingBag, Package, CircleDollarSign, BarChart3 } from 'lucide-react'
 import { fetchAllOrders } from '../lib/db'
 import { ORDER_STATUS_LABELS } from '../types'
 import type { Order, OrderStatus } from '../types'
@@ -53,6 +53,14 @@ export default function AnalyticsAdmin() {
     .slice(0, 5)
   const maxTopRevenue = topProducts[0]?.[1].revenue ?? 1
 
+  const dailyRevenue = new Map<string, number>()
+  for (const order of validOrders) {
+    const day = order.createdAt.slice(0, 10)
+    dailyRevenue.set(day, (dailyRevenue.get(day) ?? 0) + order.total)
+  }
+  const chartDays = [...dailyRevenue.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-14)
+  const maxDayRevenue = Math.max(...chartDays.map(([, v]) => v), 1)
+
   const statusOrder: OrderStatus[] = ['pending', 'gathering', 'packaging', 'shipped', 'delivered', 'cancelled']
 
   const cards = [
@@ -74,6 +82,34 @@ export default function AnalyticsAdmin() {
             <p className="text-xs text-navy-400 mt-1">{c.label}</p>
           </div>
         ))}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-navy-100/60 shadow-sm p-6">
+        <h3 className="flex items-center gap-2 font-bold text-navy-900 mb-6">
+          <BarChart3 size={17} className="text-gold-500" />
+          روند فروش ({chartDays.length.toLocaleString('fa-IR')} روز اخیر)
+        </h3>
+        {chartDays.length === 0 ? (
+          <p className="text-navy-400 text-sm text-center py-8">داده‌ای برای نمایش نمودار وجود ندارد</p>
+        ) : (
+          <div className="flex items-end gap-5 h-48 border-b border-navy-100 overflow-x-auto">
+            {chartDays.map(([day, rev]) => (
+              <div key={day} className="flex flex-col items-center justify-end h-full flex-shrink-0 w-14">
+                <span className="text-[11px] font-bold text-navy-700 mb-2 whitespace-nowrap">
+                  {rev.toLocaleString('fa-IR')}
+                </span>
+                <div
+                  className="w-8 rounded-t-md bg-gold-500 hover:bg-gold-400 transition-colors"
+                  style={{ height: `${Math.max(Math.round((rev / maxDayRevenue) * 80), 6)}%` }}
+                  title={formatPrice(rev)}
+                />
+                <span className="text-[10px] text-navy-400 mt-2 whitespace-nowrap">
+                  {new Date(day).toLocaleDateString('fa-IR', { month: 'short', day: 'numeric' })}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
