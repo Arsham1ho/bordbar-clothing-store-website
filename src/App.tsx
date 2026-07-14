@@ -175,9 +175,9 @@ interface BannerConfig {
 const heroBanners: BannerConfig[] = [
   {
     images: [
-      'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=900&h=700&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&h=700&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=900&h=700&fit=crop&auto=format',
+      '/images/1539109136881-3be0616acf4b.jpg',
+      '/images/1515886657613-9f3515b0c78f.jpg',
+      '/images/1566174053879-31528523f8ae.jpg',
     ],
     label: 'کالکشن جدید',
     title: 'پیراهن‌های مجلسی',
@@ -186,8 +186,8 @@ const heroBanners: BannerConfig[] = [
   },
   {
     images: [
-      'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=900&h=700&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1525507119028-ed4c629a60a3?w=900&h=700&fit=crop&auto=format',
+      '/images/1581044777550-4cfa60707c03.jpg',
+      '/images/1525507119028-ed4c629a60a3.jpg',
     ],
     label: 'کالکشن جدید',
     title: 'مانتو و کت زنانه',
@@ -251,12 +251,12 @@ function HeroBanners({ onSelectCategory }: { onSelectCategory: (category: string
 }
 
 const categoryShowcase = [
-  { label: 'پیراهن', image: 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?w=240&h=240&fit=crop&auto=format' },
-  { label: 'کت و شلوار', image: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=240&h=240&fit=crop&auto=format' },
-  { label: 'مانتو', image: 'https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=240&h=240&fit=crop&auto=format' },
-  { label: 'بلوز', image: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=240&h=240&fit=crop&auto=format' },
-  { label: 'شلوار', image: 'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=240&h=240&fit=crop&auto=format' },
-  { label: 'ست', image: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=240&h=240&fit=crop&auto=format' },
+  { label: 'پیراهن', image: '/images/1566174053879-31528523f8ae.jpg' },
+  { label: 'کت و شلوار', image: '/images/1594938298603-c8148c4dae35.jpg' },
+  { label: 'مانتو', image: '/images/1581044777550-4cfa60707c03.jpg' },
+  { label: 'بلوز', image: '/images/1485968579580-b6d095142e6e.jpg' },
+  { label: 'شلوار', image: '/images/1506629082955-511b1aa562c8.jpg' },
+  { label: 'ست', image: '/images/1515372039744-b8f02a3ae446.jpg' },
 ]
 
 function CategoryShowcase({ onSelect }: { onSelect: (category: string) => void }) {
@@ -443,7 +443,7 @@ function StoreInfoSection() {
         <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.7fr_1.15fr] gap-6 items-center">
           <div className="order-1 rounded-3xl overflow-hidden" style={{ aspectRatio: '5/4' }}>
             <img
-              src="https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=700&h=500&fit=crop&auto=format"
+              src="/images/1441984904996-e0b6ba687e04.jpg"
               alt="فروشگاه بردبار"
               className="w-full h-full object-cover"
             />
@@ -868,6 +868,25 @@ function ProductDetailPage({
       .finally(() => setReviewsLoading(false))
   }, [product.id])
 
+  const touchStartX = useRef<number | null>(null)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const delta = e.changedTouches[0].clientX - touchStartX.current
+    touchStartX.current = null
+    if (Math.abs(delta) < 50) return
+    setZoom(1)
+    if (delta < 0) {
+      setImg(i => (i + 1) % product.images.length)
+    } else {
+      setImg(i => (i - 1 + product.images.length) % product.images.length)
+    }
+  }
+
   const addToCart = () => {
     setCart(prev => {
       const ex = prev.find(i => i.product.id === product.id && i.size === size && i.color === color)
@@ -922,7 +941,12 @@ function ProductDetailPage({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Images */}
           <div>
-            <div className="relative rounded-3xl overflow-hidden bg-navy-50 mb-4" style={{ aspectRatio: '1/1' }}>
+            <div
+              className="relative rounded-3xl overflow-hidden bg-navy-50 mb-4 touch-pan-y"
+              style={{ aspectRatio: '1/1' }}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
               <img
                 src={product.images[img]}
                 alt={product.name}
@@ -2448,7 +2472,7 @@ function AboutPage() {
           </div>
           <div className="rounded-3xl overflow-hidden" style={{ aspectRatio: '4/3' }}>
             <img
-              src="https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=700&h=500&fit=crop&auto=format"
+              src="/images/1441984904996-e0b6ba687e04.jpg"
               alt="فروشگاه بردبار"
               className="w-full h-full object-cover"
             />
