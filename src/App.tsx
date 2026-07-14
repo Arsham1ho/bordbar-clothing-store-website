@@ -2050,7 +2050,7 @@ function AccountPage({ onSignOut, initialTab }: { onSignOut: () => void; initial
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-2 mb-6 overflow-x-auto">
+        <div className="grid grid-cols-2 sm:flex gap-2 mb-6">
           {[
             { key: 'profile' as AccountTab, label: 'پروفایل من', icon: <User size={16} /> },
             { key: 'orders' as AccountTab, label: 'سفارش‌های من', icon: <Package size={16} /> },
@@ -2060,7 +2060,7 @@ function AccountPage({ onSignOut, initialTab }: { onSignOut: () => void; initial
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`flex items-center justify-center sm:justify-start gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
                 tab === t.key ? 'bg-navy-800 text-white' : 'bg-white text-navy-600 border border-navy-100/50 hover:bg-navy-50'
               }`}
             >
@@ -2805,9 +2805,10 @@ export default function App() {
 
             <button
               onClick={goToAccount}
-              className="md:hidden w-10 h-10 rounded-xl bg-navy-800 text-white flex items-center justify-center hover:bg-navy-700 transition-colors"
+              className="sm:hidden flex items-center gap-1.5 bg-gold-500 text-navy-950 text-xs font-bold px-3 py-2.5 rounded-xl hover:bg-gold-400 transition-colors whitespace-nowrap"
             >
-              <User size={18} />
+              <User size={14} />
+              {customerLoggedIn ? 'حساب من' : 'ورود / ثبت‌نام'}
             </button>
             <button
               onClick={() => setPage('cart')}
