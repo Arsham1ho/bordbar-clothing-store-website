@@ -24,13 +24,16 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 export default function OrdersAdmin() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [updating, setUpdating] = useState<string | null>(null)
 
   const load = () => {
     setLoading(true)
+    setLoadError(false)
     fetchAllOrders()
       .then(setOrders)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false))
   }
 
@@ -41,12 +44,22 @@ export default function OrdersAdmin() {
     try {
       await updateOrderStatus(order.id, status)
       setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, status } : o)))
+    } catch {
+      window.alert('خطا در به‌روزرسانی وضعیت سفارش. لطفاً دوباره تلاش کنید.')
     } finally {
       setUpdating(null)
     }
   }
 
   if (loading) return <p className="text-navy-400 text-center py-16">در حال بارگذاری سفارش‌ها...</p>
+  if (loadError) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-red-500 mb-3">خطا در بارگذاری سفارش‌ها.</p>
+        <button onClick={load} className="text-sm text-navy-600 underline hover:text-navy-900 transition-colors">تلاش دوباره</button>
+      </div>
+    )
+  }
   if (orders.length === 0) return <p className="text-navy-400 text-center py-16">هنوز سفارشی ثبت نشده است</p>
 
   return (
