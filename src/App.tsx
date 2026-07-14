@@ -276,7 +276,7 @@ function CategoryShowcase({ onSelect }: { onSelect: (category: string) => void }
   return (
     <section className="bg-cream pb-12 pt-4">
       <div className="container mx-auto px-6">
-        <div className="flex gap-6 overflow-x-auto justify-center flex-wrap">
+        <div className="flex gap-6 justify-center flex-wrap">
           {categoryShowcase.map(c => (
             <button key={c.label} onClick={() => onSelect(c.label)} className="flex flex-col items-center gap-2 flex-shrink-0 group">
               <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-2 border-navy-100 group-hover:border-gold-400 transition-colors">
@@ -2855,6 +2855,12 @@ export default function App() {
             </div>
 
             <button
+              onClick={goToAccount}
+              className="md:hidden w-10 h-10 rounded-xl bg-navy-800 text-white flex items-center justify-center hover:bg-navy-700 transition-colors"
+            >
+              <User size={18} />
+            </button>
+            <button
               onClick={() => setPage('cart')}
               className="md:hidden relative w-10 h-10 rounded-xl bg-navy-800 text-white flex items-center justify-center hover:bg-navy-700 transition-colors"
             >
@@ -3000,11 +3006,11 @@ export default function App() {
             <section className="py-16 bg-cream">
               <div className="container mx-auto px-6">
                 <div className="flex items-center justify-between mb-10">
+                  <h2 className="text-3xl font-bold text-navy-900">محصولات ویژه</h2>
                   <button onClick={() => setPage('products')} className="text-navy-600 hover:text-navy-900 text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all">
                     مشاهده همه
                     <ChevronLeft size={16} />
                   </button>
-                  <h2 className="text-3xl font-bold text-navy-900">محصولات ویژه</h2>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
                   {products.slice(0, 4).map(p => (
