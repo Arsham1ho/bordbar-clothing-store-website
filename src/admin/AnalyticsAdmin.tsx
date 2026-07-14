@@ -20,14 +20,17 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 export default function AnalyticsAdmin() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     fetchAllOrders()
       .then(setOrders)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false))
   }, [])
 
   if (loading) return <p className="text-navy-400 text-center py-16">در حال بارگذاری آمار...</p>
+  if (loadError) return <p className="text-red-500 text-center py-16">خطا در بارگذاری آمار فروش.</p>
   if (orders.length === 0) return <p className="text-navy-400 text-center py-16">هنوز سفارشی ثبت نشده است</p>
 
   const validOrders = orders.filter(o => o.status !== 'cancelled')

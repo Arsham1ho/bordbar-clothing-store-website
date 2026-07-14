@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import {
   ShoppingBag, Search, Menu, X, Heart, Star, ChevronLeft, ChevronRight,
   MapPin, Phone, Clock, MessageCircle, Package, Truck,
@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import type { CartItem, Order, Product, Review } from './types'
 import { ORDER_STATUS_LABELS, ORDER_STATUS_STEPS } from './types'
-import { createOrder, createReview, fetchOrderByCode, fetchProducts, fetchReviews, updateOrderStatus } from './lib/db'
+import { calculateShipping, createOrder, createReview, fetchOrderByCode, fetchProducts, fetchReviews, updateOrderStatus } from './lib/db'
 import { getMockOrderCodes, getMockPhone, getMockProfile, mockSignIn, mockSignOut, rememberMockOrder, saveMockProfile } from './lib/mockAuth'
 
 // ─── Brand icons ────────────────────────────────────────────────────────────
@@ -1261,7 +1261,7 @@ function CartPage({
   onCheckout: () => void
 }) {
   const total = cart.reduce((s, i) => s + i.product.price * i.qty, 0)
-  const shipping = total >= 500_000 ? 0 : 50_000
+  const shipping = calculateShipping(total)
 
   const updateQty = (idx: number, delta: number) => {
     setCart(prev => {
@@ -1347,12 +1347,18 @@ function CartPage({
 
 function CheckoutPage({ cart, onDone }: { cart: CartItem[]; onDone: () => void }) {
   const [step, setStep] = useState<'address' | 'payment' | 'done'>('address')
-  const [form, setForm] = useState({ name: '', phone: '', address: '', postal: '' })
+  const [form, setForm] = useState(() => {
+    if (!getMockPhone()) return { name: '', phone: '', address: '', postal: '' }
+    const profile = getMockProfile()
+    return { name: profile.fullName, phone: profile.phone, address: profile.address, postal: profile.postalCode }
+  })
   const [payMethod, setPayMethod] = useState<'online' | 'cod'>('online')
   const [orderCode, setOrderCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const total = cart.reduce((s, i) => s + i.product.price * i.qty, 0)
+  const subtotal = cart.reduce((s, i) => s + i.product.price * i.qty, 0)
+  const shipping = calculateShipping(subtotal)
+  const total = subtotal + shipping
 
   const confirmOrder = async () => {
     setSubmitting(true)
@@ -1460,8 +1466,16 @@ function CheckoutPage({ cart, onDone }: { cart: CartItem[]; onDone: () => void }
                   </label>
                 ))}
               </div>
-              <div className="bg-navy-50 rounded-xl p-4 mb-6">
-                <div className="flex justify-between font-bold text-navy-900">
+              <div className="bg-navy-50 rounded-xl p-4 mb-6 space-y-2">
+                <div className="flex justify-between text-sm text-navy-600">
+                  <span>{formatPrice(subtotal)}</span>
+                  <span>جمع کل</span>
+                </div>
+                <div className="flex justify-between text-sm text-navy-600">
+                  <span>{shipping === 0 ? 'رایگان' : formatPrice(shipping)}</span>
+                  <span>هزینه ارسال</span>
+                </div>
+                <div className="flex justify-between font-bold text-navy-900 pt-2 border-t border-navy-100">
                   <span>{formatPrice(total)}</span>
                   <span>مبلغ قابل پرداخت</span>
                 </div>
@@ -1610,6 +1624,8 @@ function ChatPage() {
     'ارسال': 'ارسال به تمام استان‌های ایران طی ۳-۵ روز کاری انجام می‌شود. خریدهای بالای ۵۰۰ هزار تومان ارسال رایگان دارند.',
     'مرجوعی': 'شما ۷ روز فرصت مرجوع کردن کالا دارید. برای ثبت درخواست مرجوعی همین‌جا اطلاع دهید.',
     'سایز': 'جدول سایزبندی کامل در صفحه هر محصول موجود است. اگر بین دو سایز هستید، سایز بزرگ‌تر توصیه می‌شود.',
+    'موجودی': 'موجودی هر محصول در صفحه همان محصول نمایش داده می‌شود. برای اطلاع از موجود شدن مجدد کالای ناموجود، آن را به لیست علاقه‌مندی‌ها اضافه کنید.',
+    'رزرو': 'در حال حاضر امکان رزرو کالا وجود ندارد، اما می‌توانید کالا را مستقیماً از طریق سبد خرید ثبت سفارش کنید.',
   }
 
   const send = () => {
@@ -1728,14 +1744,14 @@ function ComparePage({ products, compare, onBack }: { products: Product[]; compa
               </div>
             ))}
             {fields.map(([label, getter]) => (
-              <>
-                <div key={label} className="p-4 bg-navy-50 font-medium text-navy-700 text-sm border-t border-navy-100 flex items-center justify-start">{label}</div>
+              <Fragment key={label}>
+                <div className="p-4 bg-navy-50 font-medium text-navy-700 text-sm border-t border-navy-100 flex items-center justify-start">{label}</div>
                 {items.map(p => (
                   <div key={p.id + label} className={`p-4 text-center border-r border-t border-navy-100 text-sm ${label === 'موجودی' ? (p.inStock ? 'text-green-600 font-medium' : 'text-red-400') : 'text-navy-700'}`}>
                     {getter(p)}
                   </div>
                 ))}
-              </>
+              </Fragment>
             ))}
           </div>
         </div>

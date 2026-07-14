@@ -135,7 +135,7 @@ function ImageListInput({ value, onChange }: { value: string; onChange: (v: stri
 
   const addItem = () => {
     const v = input.trim()
-    if (!v) return
+    if (!v || items.includes(v)) { setInput(''); return }
     onChange([...items, v].join('، '))
     setInput('')
   }
@@ -334,14 +334,17 @@ function ProductForm({
 export default function ProductsAdmin() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [editing, setEditing] = useState<Product | 'new' | null>(null)
   const [draft, setDraft] = useState<Draft>(emptyDraft)
   const [saving, setSaving] = useState(false)
 
   const load = () => {
     setLoading(true)
+    setLoadError(false)
     fetchProducts()
       .then(setProducts)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false))
   }
 
@@ -369,6 +372,8 @@ export default function ProductsAdmin() {
         setProducts(prev => prev.map(p => (p.id === updated.id ? updated : p)))
       }
       setEditing(null)
+    } catch {
+      window.alert('خطا در ذخیره محصول. لطفاً دوباره تلاش کنید.')
     } finally {
       setSaving(false)
     }
@@ -376,16 +381,32 @@ export default function ProductsAdmin() {
 
   const remove = async (p: Product) => {
     if (!window.confirm(`محصول «${p.name}» حذف شود؟`)) return
-    await deleteProduct(p.id)
-    setProducts(prev => prev.filter(x => x.id !== p.id))
+    try {
+      await deleteProduct(p.id)
+      setProducts(prev => prev.filter(x => x.id !== p.id))
+    } catch {
+      window.alert('خطا در حذف محصول. لطفاً دوباره تلاش کنید.')
+    }
   }
 
   const toggle = async (p: Product, key: 'inStock' | 'isNew') => {
-    const updated = await updateProduct(p.id, { ...p, [key]: !p[key] })
-    setProducts(prev => prev.map(x => (x.id === updated.id ? updated : x)))
+    try {
+      const updated = await updateProduct(p.id, { ...p, [key]: !p[key] })
+      setProducts(prev => prev.map(x => (x.id === updated.id ? updated : x)))
+    } catch {
+      window.alert('خطا در به‌روزرسانی محصول. لطفاً دوباره تلاش کنید.')
+    }
   }
 
   if (loading) return <p className="text-navy-400 text-center py-16">در حال بارگذاری محصولات...</p>
+  if (loadError) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-red-500 mb-3">خطا در بارگذاری محصولات.</p>
+        <button onClick={load} className="text-sm text-navy-600 underline hover:text-navy-900 transition-colors">تلاش دوباره</button>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -404,7 +425,12 @@ export default function ProductsAdmin() {
         {products.map(p => (
           <div key={p.id} className="bg-white rounded-2xl border border-navy-100/60 shadow-sm overflow-hidden">
             <div className="flex gap-3 p-4">
-              <img src={p.images[0]} alt={p.name} className="w-16 h-20 object-cover rounded-xl flex-shrink-0" />
+              <img
+                src={p.images[0]}
+                alt={p.name}
+                className="w-16 h-20 object-cover rounded-xl flex-shrink-0 bg-navy-50"
+                onError={e => { e.currentTarget.style.opacity = '0.15' }}
+              />
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-navy-900 text-sm truncate">{p.name}</p>
                 <p className="text-xs text-navy-400 mb-1">{p.category}</p>

@@ -142,6 +142,13 @@ function generateOrderCode(): string {
   return code
 }
 
+const FREE_SHIPPING_THRESHOLD = 500_000
+const SHIPPING_COST = 50_000
+
+export function calculateShipping(subtotal: number): number {
+  return subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_COST
+}
+
 export async function createOrder(params: {
   cart: CartItem[]
   customerName: string
@@ -150,7 +157,8 @@ export async function createOrder(params: {
   postalCode: string
   paymentMethod: 'online' | 'cod'
 }): Promise<Order> {
-  const total = params.cart.reduce((s, i) => s + i.product.price * i.qty, 0)
+  const subtotal = params.cart.reduce((s, i) => s + i.product.price * i.qty, 0)
+  const total = subtotal + calculateShipping(subtotal)
   const { data: { user } } = await supabase.auth.getUser()
 
   for (let attempt = 0; attempt < 5; attempt++) {
