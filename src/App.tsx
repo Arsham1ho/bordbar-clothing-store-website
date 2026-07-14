@@ -5,7 +5,7 @@ import {
   CheckCircle, XCircle, ArrowRight,
   BarChart2, Trash2, Plus, Minus, CreditCard, AlertCircle,
   Home, Info, Send, Lock, Scale, User, SlidersHorizontal, RotateCcw,
-  ZoomIn, ZoomOut, Pencil, FileText, Ruler, Eye
+  ZoomIn, ZoomOut, Pencil, FileText, Ruler
 } from 'lucide-react'
 import type { CartItem, Order, Product, Review } from './types'
 import { ORDER_STATUS_LABELS, ORDER_STATUS_STEPS } from './types'
@@ -82,7 +82,6 @@ function ProductCard({
   comparing,
   liked,
   onToggleLike,
-  onQuickView,
 }: {
   product: Product
   onView: () => void
@@ -91,7 +90,6 @@ function ProductCard({
   comparing: boolean
   liked: boolean
   onToggleLike: () => void
-  onQuickView: () => void
 }) {
   const [img, setImg] = useState(0)
 
@@ -139,37 +137,26 @@ function ProductCard({
         >
           <Scale size={14} />
         </button>
-        {product.inStock && (
-          <button
-            onClick={e => { e.stopPropagation(); onQuickView() }}
-            className="absolute bottom-3 right-3 flex items-center gap-1.5 bg-white/95 text-navy-800 text-xs font-medium px-3 py-2 rounded-xl shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
-          >
-            <Eye size={13} />
-            مشاهده سریع
-          </button>
-        )}
       </div>
       <div className="p-4">
         <p className="text-xs text-navy-400 mb-1">{product.category}</p>
         <h3 className="font-semibold text-navy-900 text-sm mb-2 cursor-pointer hover:text-navy-600 transition-colors" onClick={onView}>{product.name}</h3>
         <StarRating rating={product.rating} count={product.reviews} />
-        <div className="flex items-center justify-between mt-3">
-          <div>
-            {product.originalPrice && (
-              <p className="text-xs text-gray-400 line-through">{formatPrice(product.originalPrice)}</p>
-            )}
-            <p className="font-bold text-navy-800 text-sm">{formatPrice(product.price)}</p>
-          </div>
-          {product.inStock && (
-            <button
-              onClick={onAddCart}
-              className="flex items-center gap-1.5 bg-navy-800 text-white text-xs px-3 py-2 rounded-xl hover:bg-navy-600 transition-colors"
-            >
-              <Plus size={13} />
-              افزودن
-            </button>
+        <div className="mt-3">
+          {product.originalPrice && (
+            <p className="text-xs text-gray-400 line-through">{formatPrice(product.originalPrice)}</p>
           )}
+          <p className="font-bold text-navy-800 text-sm">{formatPrice(product.price)}</p>
         </div>
+        {product.inStock && (
+          <button
+            onClick={onAddCart}
+            className="w-full flex items-center justify-center gap-1.5 bg-navy-800 text-white text-xs px-3 py-2 rounded-xl hover:bg-navy-600 transition-colors mt-3"
+          >
+            <Plus size={13} />
+            افزودن به سبد
+          </button>
+        )}
       </div>
     </div>
   )
@@ -300,7 +287,6 @@ function NewestProducts({
   toggleCompare,
   favorites,
   toggleFavorite,
-  onQuickView,
 }: {
   products: Product[]
   onViewAll: () => void
@@ -310,7 +296,6 @@ function NewestProducts({
   toggleCompare: (id: number) => void
   favorites: number[]
   toggleFavorite: (id: number) => void
-  onQuickView: (p: Product) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -371,7 +356,6 @@ function NewestProducts({
                       comparing={compare.includes(p.id)}
                       liked={favorites.includes(p.id)}
                       onToggleLike={() => toggleFavorite(p.id)}
-                      onQuickView={() => onQuickView(p)}
                     />
                   </div>
                 ))}
@@ -535,6 +519,73 @@ function FeaturesBar() {
   )
 }
 
+function FilterFields({
+  cat,
+  onCatChange,
+  minPrice,
+  setMinPrice,
+  maxPrice,
+  setMaxPrice,
+  inStockOnly,
+  setInStockOnly,
+}: {
+  cat: string
+  onCatChange: (cat: string) => void
+  minPrice: string
+  setMinPrice: (v: string) => void
+  maxPrice: string
+  setMaxPrice: (v: string) => void
+  inStockOnly: boolean
+  setInStockOnly: (v: boolean) => void
+}) {
+  return (
+    <>
+      <div className="mb-6">
+        <p className="text-sm font-semibold text-navy-800 mb-3">دسته‌بندی</p>
+        <div className="flex flex-col gap-1">
+          {categories.map(c => (
+            <button
+              key={c}
+              onClick={() => onCatChange(c)}
+              className={`text-right px-3 py-2 rounded-xl text-sm transition-colors ${cat === c ? 'bg-navy-800 text-white font-medium' : 'text-navy-600 hover:bg-navy-50'}`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-6 pt-5 border-t border-navy-100">
+        <p className="text-sm font-semibold text-navy-800 mb-3">محدوده قیمت (تومان)</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            value={minPrice}
+            onChange={e => setMinPrice(e.target.value)}
+            placeholder="حداقل"
+            className="w-full px-3 py-2 rounded-xl border border-navy-200 text-sm focus:outline-none focus:border-navy-500"
+          />
+          <span className="text-navy-300 flex-shrink-0">تا</span>
+          <input
+            type="number"
+            value={maxPrice}
+            onChange={e => setMaxPrice(e.target.value)}
+            placeholder="حداکثر"
+            className="w-full px-3 py-2 rounded-xl border border-navy-200 text-sm focus:outline-none focus:border-navy-500"
+          />
+        </div>
+      </div>
+
+      <div className="pt-5 border-t border-navy-100">
+        <label className="flex items-center gap-2 text-sm text-navy-700 cursor-pointer">
+          <input type="checkbox" checked={inStockOnly} onChange={e => setInStockOnly(e.target.checked)} />
+          فقط کالاهای موجود
+        </label>
+      </div>
+    </>
+  )
+}
+
 function ProductsPage({
   products,
   loading,
@@ -547,7 +598,6 @@ function ProductsPage({
   toggleCompare,
   favorites,
   toggleFavorite,
-  onQuickView,
 }: {
   products: Product[]
   loading: boolean
@@ -560,13 +610,13 @@ function ProductsPage({
   toggleCompare: (id: number) => void
   favorites: number[]
   toggleFavorite: (id: number) => void
-  onQuickView: (p: Product) => void
 }) {
   const [search, setSearch] = useState(initialSearch ?? '')
   const [sort, setSort] = useState('پیش‌فرض')
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
   const [inStockOnly, setInStockOnly] = useState(false)
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
 
   const addToCart = (p: Product) => {
     setCart(prev => {
@@ -596,6 +646,8 @@ function ProductsPage({
     setInStockOnly(false)
   }
 
+  const activeFilterCount = (cat !== 'همه' ? 1 : 0) + (minPrice ? 1 : 0) + (maxPrice ? 1 : 0) + (inStockOnly ? 1 : 0)
+
   return (
     <div className="min-h-screen bg-cream py-10">
       <div className="container mx-auto px-6">
@@ -618,7 +670,21 @@ function ProductsPage({
               ))}
             </div>
           </div>
-          <span className="text-xs text-navy-400 whitespace-nowrap">{filtered.length.toLocaleString('fa-IR')} کالا</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowMobileFilters(true)}
+              className="lg:hidden relative flex items-center gap-1.5 bg-white border border-navy-200 text-navy-700 text-sm font-medium px-4 py-2 rounded-xl hover:border-navy-400 transition-colors"
+            >
+              <SlidersHorizontal size={14} />
+              فیلترها
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {activeFilterCount.toLocaleString('fa-IR')}
+                </span>
+              )}
+            </button>
+            <span className="text-xs text-navy-400 whitespace-nowrap">{filtered.length.toLocaleString('fa-IR')} کالا</span>
+          </div>
         </div>
 
         {search && (
@@ -634,7 +700,7 @@ function ProductsPage({
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">
-          <aside className="bg-white rounded-2xl border border-navy-100/50 p-5 h-fit lg:sticky lg:top-24">
+          <aside className="hidden lg:block bg-white rounded-2xl border border-navy-100/50 p-5 h-fit lg:sticky lg:top-24">
             <div className="flex items-center justify-between mb-5">
               <button onClick={resetFilters} className="flex items-center gap-1 text-xs text-navy-400 hover:text-navy-700 transition-colors">
                 <RotateCcw size={12} />
@@ -646,48 +712,16 @@ function ProductsPage({
               </h3>
             </div>
 
-            <div className="mb-6">
-              <p className="text-sm font-semibold text-navy-800 mb-3">دسته‌بندی</p>
-              <div className="flex flex-col gap-1">
-                {categories.map(c => (
-                  <button
-                    key={c}
-                    onClick={() => onCatChange(c)}
-                    className={`text-right px-3 py-2 rounded-xl text-sm transition-colors ${cat === c ? 'bg-navy-800 text-white font-medium' : 'text-navy-600 hover:bg-navy-50'}`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-6 pt-5 border-t border-navy-100">
-              <p className="text-sm font-semibold text-navy-800 mb-3">محدوده قیمت (تومان)</p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={minPrice}
-                  onChange={e => setMinPrice(e.target.value)}
-                  placeholder="حداقل"
-                  className="w-full px-3 py-2 rounded-xl border border-navy-200 text-sm focus:outline-none focus:border-navy-500"
-                />
-                <span className="text-navy-300 flex-shrink-0">تا</span>
-                <input
-                  type="number"
-                  value={maxPrice}
-                  onChange={e => setMaxPrice(e.target.value)}
-                  placeholder="حداکثر"
-                  className="w-full px-3 py-2 rounded-xl border border-navy-200 text-sm focus:outline-none focus:border-navy-500"
-                />
-              </div>
-            </div>
-
-            <div className="pt-5 border-t border-navy-100">
-              <label className="flex items-center gap-2 text-sm text-navy-700 cursor-pointer">
-                <input type="checkbox" checked={inStockOnly} onChange={e => setInStockOnly(e.target.checked)} />
-                فقط کالاهای موجود
-              </label>
-            </div>
+            <FilterFields
+              cat={cat}
+              onCatChange={onCatChange}
+              minPrice={minPrice}
+              setMinPrice={setMinPrice}
+              maxPrice={maxPrice}
+              setMaxPrice={setMaxPrice}
+              inStockOnly={inStockOnly}
+              setInStockOnly={setInStockOnly}
+            />
           </aside>
 
           <div>
@@ -708,7 +742,6 @@ function ProductsPage({
                       comparing={compare.includes(p.id)}
                       liked={favorites.includes(p.id)}
                       onToggleLike={() => toggleFavorite(p.id)}
-                      onQuickView={() => onQuickView(p)}
                     />
                   ))}
                 </div>
@@ -723,6 +756,55 @@ function ProductsPage({
           </div>
         </div>
       </div>
+
+      {showMobileFilters && (
+        <div className="fixed inset-0 z-50 lg:hidden flex items-end" onClick={() => setShowMobileFilters(false)}>
+          <div className="absolute inset-0 bg-navy-950/50" />
+          <div
+            className="relative bg-white rounded-t-3xl w-full max-h-[85vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-navy-100 sticky top-0 bg-white rounded-t-3xl z-10">
+              <button onClick={() => setShowMobileFilters(false)} className="w-9 h-9 rounded-full bg-navy-50 text-navy-500 hover:bg-navy-100 hover:text-navy-800 flex items-center justify-center transition-colors">
+                <X size={17} />
+              </button>
+              <h3 className="flex items-center gap-2 font-bold text-navy-900">
+                فیلترها
+                <SlidersHorizontal size={16} />
+              </h3>
+            </div>
+
+            <div className="p-5">
+              <FilterFields
+                cat={cat}
+                onCatChange={onCatChange}
+                minPrice={minPrice}
+                setMinPrice={setMinPrice}
+                maxPrice={maxPrice}
+                setMaxPrice={setMaxPrice}
+                inStockOnly={inStockOnly}
+                setInStockOnly={setInStockOnly}
+              />
+            </div>
+
+            <div className="flex gap-3 p-5 pt-4 border-t border-navy-100 sticky bottom-0 bg-white">
+              <button
+                onClick={resetFilters}
+                className="flex items-center gap-1.5 px-4 py-3 rounded-2xl border border-navy-200 text-navy-600 text-sm font-medium hover:border-navy-400 transition-colors flex-shrink-0"
+              >
+                <RotateCcw size={14} />
+                حذف فیلتر
+              </button>
+              <button
+                onClick={() => setShowMobileFilters(false)}
+                className="flex-1 bg-navy-800 text-white py-3 rounded-2xl font-bold hover:bg-navy-600 transition-colors"
+              >
+                مشاهده {filtered.length.toLocaleString('fa-IR')} کالا
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -740,7 +822,6 @@ function ProductDetailPage({
   goToPolicy,
   favorites,
   toggleFavorite,
-  onQuickView,
 }: {
   product: Product
   products: Product[]
@@ -754,7 +835,6 @@ function ProductDetailPage({
   goToPolicy: (tab: PolicyTab) => void
   favorites: number[]
   toggleFavorite: (id: number) => void
-  onQuickView: (p: Product) => void
 }) {
   const [size, setSize] = useState(product.sizes[0])
   const [color, setColor] = useState(product.colors[0])
@@ -832,7 +912,7 @@ function ProductDetailPage({
 
   return (
     <>
-    <div className="min-h-screen bg-cream py-10">
+    <div className="min-h-screen bg-cream py-10 pb-28 lg:pb-10">
       <div className="container mx-auto px-6">
         <button onClick={onBack} className="flex items-center gap-2 text-navy-600 hover:text-navy-900 transition-colors mb-8 group">
           <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -885,7 +965,7 @@ function ProductDetailPage({
             <h1 className="text-3xl font-bold text-navy-900 mb-3">{product.name}</h1>
             <StarRating rating={product.rating} count={product.reviews} />
 
-            <div className="mt-6 mb-8">
+            <div className="hidden lg:block mt-6 mb-8">
               {product.originalPrice && (
                 <p className="text-gray-400 line-through text-lg">{formatPrice(product.originalPrice)}</p>
               )}
@@ -893,7 +973,7 @@ function ProductDetailPage({
             </div>
 
             {/* Sizes */}
-            <div className="mb-6">
+            <div className="mb-6 mt-6 lg:mt-0">
               <div className="flex items-center justify-between mb-3">
                 <p className="font-semibold text-navy-800">سایز: <span className="text-navy-500 font-normal">{size}</span></p>
                 <SizeGuideButton />
@@ -927,11 +1007,11 @@ function ProductDetailPage({
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex items-center gap-3 fixed bottom-0 inset-x-0 z-40 bg-white border-t border-navy-100 p-4 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] lg:static lg:z-auto lg:p-0 lg:border-0 lg:bg-transparent lg:shadow-none">
               <button
                 onClick={addToCart}
                 disabled={!product.inStock}
-                className={`flex-1 py-4 rounded-2xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-2 ${
+                className={`flex-1 py-3.5 lg:py-4 rounded-2xl font-bold text-base lg:text-lg whitespace-nowrap transition-all duration-300 flex items-center justify-center gap-2 ${
                   !product.inStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed' :
                   added ? 'bg-green-500 text-white' : 'bg-navy-800 text-white hover:bg-navy-600 hover:shadow-lg'
                 }`}
@@ -939,15 +1019,18 @@ function ProductDetailPage({
                 {!product.inStock ? (
                   <><XCircle size={20} /> ناموجود</>
                 ) : added ? (
-                  <><CheckCircle size={20} /> به سبد افزوده شد</>
+                  <><CheckCircle size={20} /> <span className="hidden lg:inline">به سبد افزوده شد</span><span className="lg:hidden">افزوده شد</span></>
                 ) : (
-                  <><ShoppingBag size={20} /> افزودن به سبد خرید</>
+                  <><ShoppingBag size={20} /> <span className="hidden lg:inline">افزودن به سبد خرید</span><span className="lg:hidden">افزودن به سبد</span></>
                 )}
               </button>
+              <div className="lg:hidden flex-shrink-0">
+                <p className="font-bold text-navy-900 text-base whitespace-nowrap">{formatPrice(product.price)}</p>
+              </div>
               <button
                 onClick={() => toggleFavorite(product.id)}
                 title="افزودن به علاقه‌مندی‌ها"
-                className={`w-14 flex-shrink-0 rounded-2xl border transition-colors flex items-center justify-center ${
+                className={`hidden lg:flex w-14 flex-shrink-0 rounded-2xl border transition-colors items-center justify-center ${
                   favorites.includes(product.id)
                     ? 'bg-red-50 border-red-200 text-red-500'
                     : 'border-navy-200 text-navy-400 hover:border-navy-400 hover:text-navy-600'
@@ -1131,7 +1214,6 @@ function ProductDetailPage({
                   comparing={compare.includes(p.id)}
                   liked={favorites.includes(p.id)}
                   onToggleLike={() => toggleFavorite(p.id)}
-                  onQuickView={() => onQuickView(p)}
                 />
               ))}
             </div>
@@ -1647,7 +1729,6 @@ function FavoritesPage({
   onView,
   setCart,
   onBack,
-  onQuickView,
 }: {
   products: Product[]
   favorites: number[]
@@ -1657,7 +1738,6 @@ function FavoritesPage({
   onView: (p: Product) => void
   setCart: React.Dispatch<React.SetStateAction<CartItem[]>>
   onBack: () => void
-  onQuickView: (p: Product) => void
 }) {
   const items = products.filter(p => favorites.includes(p.id))
 
@@ -1708,7 +1788,6 @@ function FavoritesPage({
               comparing={compare.includes(p.id)}
               liked={favorites.includes(p.id)}
               onToggleLike={() => toggleFavorite(p.id)}
-              onQuickView={() => onQuickView(p)}
             />
           ))}
         </div>
@@ -2309,8 +2388,8 @@ function SizeGuideButton() {
         راهنمای سایز
       </button>
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-navy-950/60 backdrop-blur-sm" onClick={() => setOpen(false)}>
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-navy-950/60 backdrop-blur-sm" onClick={() => setOpen(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-6 md:p-8" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-full bg-navy-50 flex items-center justify-center text-navy-500 hover:bg-navy-100 transition-colors">
                 <X size={15} />
@@ -2349,131 +2428,6 @@ function SizeGuideButton() {
         </div>
       )}
     </>
-  )
-}
-
-function QuickViewModal({
-  product,
-  onClose,
-  setCart,
-  favorites,
-  toggleFavorite,
-  onViewFull,
-}: {
-  product: Product
-  onClose: () => void
-  setCart: React.Dispatch<React.SetStateAction<CartItem[]>>
-  favorites: number[]
-  toggleFavorite: (id: number) => void
-  onViewFull: () => void
-}) {
-  const [size, setSize] = useState(product.sizes[0])
-  const [color, setColor] = useState(product.colors[0])
-  const [added, setAdded] = useState(false)
-
-  useEffect(() => {
-    setSize(product.sizes[0])
-    setColor(product.colors[0])
-    setAdded(false)
-  }, [product.id])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  const addToCart = () => {
-    setCart(prev => {
-      const ex = prev.find(i => i.product.id === product.id && i.size === size && i.color === color)
-      if (ex) return prev.map(i => i.product.id === product.id && i.size === size && i.color === color ? { ...i, qty: i.qty + 1 } : i)
-      return [...prev, { product, size, color, qty: 1 }]
-    })
-    setAdded(true)
-    setTimeout(() => setAdded(false), 1500)
-  }
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-navy-950/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto grid grid-cols-1 md:grid-cols-2" onClick={e => e.stopPropagation()}>
-        <div className="relative bg-navy-50" style={{ aspectRatio: '4/5' }}>
-          <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
-          <button onClick={onClose} className="absolute top-3 left-3 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors">
-            <X size={16} className="text-navy-700" />
-          </button>
-        </div>
-        <div className="p-6 md:p-7 text-right flex flex-col">
-          <p className="text-navy-400 text-xs mb-1">{product.category}</p>
-          <h2 className="text-xl font-bold text-navy-900 mb-2">{product.name}</h2>
-          <StarRating rating={product.rating} count={product.reviews} />
-          <div className="my-4">
-            {product.originalPrice && (
-              <p className="text-gray-400 line-through text-sm">{formatPrice(product.originalPrice)}</p>
-            )}
-            <p className="text-2xl font-bold text-navy-800">{formatPrice(product.price)}</p>
-          </div>
-
-          <div className="mb-4">
-            <p className="text-xs font-medium text-navy-600 mb-2">سایز: <span className="text-navy-900 font-bold">{size}</span></p>
-            <div className="flex gap-1.5 flex-wrap">
-              {product.sizes.map(s => (
-                <button
-                  key={s}
-                  onClick={() => setSize(s)}
-                  className={`w-9 h-9 rounded-lg text-xs font-medium transition-colors ${size === s ? 'bg-navy-800 text-white' : 'border border-navy-200 text-navy-700 hover:border-navy-500'}`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <p className="text-xs font-medium text-navy-600 mb-2">رنگ: <span className="text-navy-900 font-bold">{color}</span></p>
-            <div className="flex gap-1.5 flex-wrap">
-              {product.colors.map(c => (
-                <button
-                  key={c}
-                  onClick={() => setColor(c)}
-                  className={`px-3 py-1.5 rounded-full text-xs transition-colors ${color === c ? 'bg-navy-800 text-white' : 'border border-navy-200 text-navy-700 hover:border-navy-500'}`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex gap-2 mt-auto">
-            <button
-              onClick={addToCart}
-              disabled={!product.inStock}
-              className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors ${
-                !product.inStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : added ? 'bg-green-500 text-white' : 'bg-navy-800 text-white hover:bg-navy-600'
-              }`}
-            >
-              {!product.inStock ? (
-                <><XCircle size={16} /> ناموجود</>
-              ) : added ? (
-                <><CheckCircle size={16} /> افزوده شد</>
-              ) : (
-                <><ShoppingBag size={16} /> افزودن به سبد</>
-              )}
-            </button>
-            <button
-              onClick={() => toggleFavorite(product.id)}
-              className={`w-12 flex-shrink-0 rounded-xl border flex items-center justify-center transition-colors ${
-                favorites.includes(product.id) ? 'bg-red-50 border-red-200 text-red-500' : 'border-navy-200 text-navy-400 hover:border-navy-400'
-              }`}
-            >
-              <Heart size={17} className={favorites.includes(product.id) ? 'fill-red-500' : ''} />
-            </button>
-          </div>
-          <button onClick={onViewFull} className="mt-3 text-sm text-navy-600 hover:text-navy-900 underline text-center transition-colors">
-            مشاهده کامل محصول
-          </button>
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -2570,7 +2524,6 @@ function AboutPage() {
 export default function App() {
   const [page, setPage] = useState<Page>('home')
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null)
   const [cart, setCart] = useState<CartItem[]>([])
   const [compare, setCompare] = useState<number[]>([])
   const [favorites, setFavorites] = useState<number[]>(() => {
@@ -2625,10 +2578,6 @@ export default function App() {
     setProductsInitialSearch(search)
     setPage('products')
     setMobileMenu(false)
-  }
-
-  const openQuickView = (p: Product) => {
-    setQuickViewProduct(p)
   }
 
   const goToPolicy = (tab: PolicyTab) => {
@@ -3001,7 +2950,6 @@ export default function App() {
               toggleCompare={toggleCompare}
               favorites={favorites}
               toggleFavorite={toggleFavorite}
-              onQuickView={openQuickView}
             />
             <section className="py-16 bg-cream">
               <div className="container mx-auto px-6">
@@ -3027,7 +2975,6 @@ export default function App() {
                       comparing={compare.includes(p.id)}
                       liked={favorites.includes(p.id)}
                       onToggleLike={() => toggleFavorite(p.id)}
-                      onQuickView={() => openQuickView(p)}
                     />
                   ))}
                 </div>
@@ -3055,7 +3002,6 @@ export default function App() {
             toggleCompare={toggleCompare}
             favorites={favorites}
             toggleFavorite={toggleFavorite}
-            onQuickView={openQuickView}
           />
         )}
 
@@ -3073,7 +3019,6 @@ export default function App() {
             goToPolicy={goToPolicy}
             favorites={favorites}
             toggleFavorite={toggleFavorite}
-            onQuickView={openQuickView}
           />
         )}
 
@@ -3101,7 +3046,6 @@ export default function App() {
             onView={p => { setSelectedProduct(p); setPage('product') }}
             setCart={setCart}
             onBack={() => setPage('products')}
-            onQuickView={openQuickView}
           />
         )}
 
@@ -3117,21 +3061,6 @@ export default function App() {
           <AccountPage onSignOut={signOutCustomer} initialTab={accountTab} />
         )}
       </main>
-
-      {quickViewProduct && (
-        <QuickViewModal
-          product={quickViewProduct}
-          onClose={() => setQuickViewProduct(null)}
-          setCart={setCart}
-          favorites={favorites}
-          toggleFavorite={toggleFavorite}
-          onViewFull={() => {
-            setSelectedProduct(quickViewProduct)
-            setPage('product')
-            setQuickViewProduct(null)
-          }}
-        />
-      )}
     </div>
   )
 }
